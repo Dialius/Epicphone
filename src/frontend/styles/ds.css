@@ -214,15 +214,51 @@ body.scroll-lock { overflow: hidden; }
 .shell.collapsed .sidebar-toggle:focus-visible {
   opacity: 1;
   pointer-events: auto;
-  transform: translate(-50%, -50%) scale(1.04);
+  animation: popInButton 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 .shell.collapsed .sidebar-brand:hover img {
-  opacity: 0.15;
-  transform: scale(0.95);
+  opacity: 0.12;
+  transform: scale(0.92);
 }
 .shell.collapsed .sidebar-toggle:hover {
   background: var(--bg-hover);
   color: var(--accent);
+}
+
+/* ============ Micro-Animasi Tombol Sidebar ============ */
+.icon-sidebar-anim {
+  display: inline-block;
+  overflow: visible;
+  transition: transform var(--motion-fast);
+}
+.sidebar-toggle .sb-rect {
+  transition: stroke 0.2s ease, opacity 0.2s ease;
+}
+.sidebar-toggle .sb-line {
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), stroke 0.2s ease;
+}
+.sidebar-toggle .sb-arrow {
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), stroke 0.2s ease;
+  stroke-width: 2;
+}
+.sidebar-toggle:hover .sb-line,
+.sidebar-toggle:hover .sb-arrow {
+  stroke: var(--accent);
+}
+.sidebar-toggle:hover .icon-sidebar-anim.lebar .sb-arrow {
+  transform: translateX(-2.5px);
+}
+.sidebar-toggle:hover .icon-sidebar-anim.ciut .sb-arrow {
+  transform: translateX(2.5px);
+}
+.sidebar-toggle:active .icon-sidebar-anim {
+  transform: scale(0.9);
+}
+
+@keyframes popInButton {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
+  60% { transform: translate(-50%, -50%) scale(1.1); }
+  100% { opacity: 1; transform: translate(-50%, -50%) scale(1.04); }
 }
 .shell.collapsed .side-item .side-badge-dot { display: block; position: absolute; top: 7px; right: 10px; width: 9px; height: 9px; border-radius: 50%; background: var(--bad-solid); border: 2px solid var(--bg-surface); box-sizing: content-box; }
 .shell.collapsed .sidebar-brand-text, .shell.collapsed .side-label, .shell.collapsed .side-text, .shell.collapsed .side-badge,

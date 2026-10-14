@@ -293,6 +293,8 @@ export function App() {
     else toast({ tipe: 'info', judul: `${daftar.length} foto ${idUnit} terunggah ke Drive` });
   };
 
+  const sedangProses = useRef(false);
+
   /** Aksesoris masuk: menambah stok (harga beli rata-rata dihitung server). Mode demo hanya mengubah daftar lokal. */
   const handleSimpanAksesorisMasuk = async (data: DataAksesorisMasuk): Promise<{ ok: boolean; pesan?: string }> => {
     if (isDemo) {
@@ -309,17 +311,23 @@ export function App() {
       toast({ judul: `${data.nama} +${data.qty}`, desk: 'Stok aksesoris diperbarui (mode demo).' });
       return { ok: true };
     }
-    const res = await apiCall<any>('simpanPembelian', sesuai<PembelianInput>({
-      namaSupplier: data.supplier || 'Supplier', metodeBayar: data.metodeBayar || 'Tunai', dibayar: data.dibayar, jatuhTempo: data.jatuhTempo, catatan: data.catatan,
-      items: [{ tipe: 'Aksesoris', namaBarang: data.nama, sku: data.sku, kategori: data.kategori, qty: data.qty, hargaBeli: data.hargaBeli, hargaJualTarget: data.hargaJual }],
-    }), buatIdemKey());
-    if (!res.ok) {
-      toast({ tipe: 'error', judul: 'Aksesoris belum tersimpan', desk: res.pesan || 'Periksa koneksi lalu coba lagi.', durasi: 8000 });
-      return { ok: false, pesan: res.pesan };
+    if (sedangProses.current) return { ok: false, pesan: 'Sedang memproses penyimpanan...' };
+    sedangProses.current = true;
+    try {
+      const res = await apiCall<any>('simpanPembelian', sesuai<PembelianInput>({
+        namaSupplier: data.supplier || 'Supplier', metodeBayar: data.metodeBayar || 'Tunai', dibayar: data.dibayar, jatuhTempo: data.jatuhTempo, catatan: data.catatan,
+        items: [{ tipe: 'Aksesoris', namaBarang: data.nama, sku: data.sku, kategori: data.kategori, qty: data.qty, hargaBeli: data.hargaBeli, hargaJualTarget: data.hargaJual }],
+      }), buatIdemKey());
+      if (!res.ok) {
+        toast({ tipe: 'error', judul: 'Aksesoris belum tersimpan', desk: res.pesan || 'Periksa koneksi lalu coba lagi.', durasi: 8000 });
+        return { ok: false, pesan: res.pesan };
+      }
+      toast({ judul: `${data.nama} +${data.qty}`, desk: `Stok bertambah. Total ${rupiah(data.qty * data.hargaBeli)}.` });
+      void muatSemua();
+      return { ok: true };
+    } finally {
+      sedangProses.current = false;
     }
-    toast({ judul: `${data.nama} +${data.qty}`, desk: `Stok bertambah. Total ${rupiah(data.qty * data.hargaBeli)}.` });
-    void muatSemua();
-    return { ok: true };
   };
 
   /** Catat model ke Katalog Produk bila belum ada. Gagal/ganda tidak menghalangi pencatatan unit. */
@@ -339,54 +347,60 @@ export function App() {
   };
 
   const handleSimpanBarangMasuk = async (data: DataBarangMasuk): Promise<{ ok: boolean; pesan?: string }> => {
-    await catatKatalogBarangMasuk(data);
-    const res = await apiCall<any>('simpanPembelian', sesuai<PembelianInput>({
-      namaSupplier: data.supplier || 'Supplier',
-      metodeBayar: data.metodeBayar || 'Tunai',
-      dibayar: data.dibayar ?? data.hargaBeli,
-      jatuhTempo: data.jatuhTempo,
-      items: [{
-        tipe: 'HP', namaBarang: data.nama, imei1: data.imei, imei2: data.imei2, kondisi: data.kondisi, grade: data.grade,
-        kelengkapan: data.kelengkapan, bateraiPersen: data.baterai, bebasKunciAkun: data.bebasKunci,
-        hargaBeli: data.hargaBeli, biayaLain: data.biayaLain, hargaJualTarget: data.hargaJualTarget, perluServis: data.perluServis,
-        keluhanServis: data.keluhanServis, estimasiServis: data.estimasiServis, catatan: data.catatan,
-        pelaksanaServis: data.perluServis ? 'Teknisi sendiri' : undefined,
-      }],
-    }), buatIdemKey());
-    if (!res.ok) {
-      toast({ tipe: 'error', judul: 'Unit belum tersimpan', desk: res.pesan || 'Periksa koneksi lalu coba lagi.' });
-      return { ok: false, pesan: res.pesan };
-    }
-    if (!isDemo) {
-      const idUnit: string | undefined = res.data?.unitsCreated?.[0];
-      toast({ judul: `${data.nama} dicatat`, desk: `${idUnit || ''} · IMEI ...${String(data.imei).slice(-4)} · modal ${rupiah((data.hargaBeli || 0) + (data.biayaLain || 0))}` });
-      if (idUnit && data.fotoPosisi && Object.keys(data.fotoPosisi).length > 0) {
-        const fotoPreview = Object.values(data.fotoPosisi).filter(Boolean);
-        setStokList(l => l.map(u => u.id === idUnit ? { ...u, foto: fotoPreview } : u));
-        void unggahFotoUnit(idUnit, data.fotoPosisi).then(() => muatSemua());
-      } else {
-        void muatSemua();
+    if (sedangProses.current) return { ok: false, pesan: 'Sedang memproses penyimpanan...' };
+    sedangProses.current = true;
+    try {
+      await catatKatalogBarangMasuk(data);
+      const res = await apiCall<any>('simpanPembelian', sesuai<PembelianInput>({
+        namaSupplier: data.supplier || 'Supplier',
+        metodeBayar: data.metodeBayar || 'Tunai',
+        dibayar: data.dibayar ?? data.hargaBeli,
+        jatuhTempo: data.jatuhTempo,
+        items: [{
+          tipe: 'HP', namaBarang: data.nama, imei1: data.imei, imei2: data.imei2, kondisi: data.kondisi, grade: data.grade,
+          kelengkapan: data.kelengkapan, bateraiPersen: data.baterai, bebasKunciAkun: data.bebasKunci,
+          hargaBeli: data.hargaBeli, biayaLain: data.biayaLain, hargaJualTarget: data.hargaJualTarget, perluServis: data.perluServis,
+          keluhanServis: data.keluhanServis, estimasiServis: data.estimasiServis, catatan: data.catatan,
+          pelaksanaServis: data.perluServis ? 'Teknisi sendiri' : undefined,
+        }],
+      }), buatIdemKey());
+      if (!res.ok) {
+        toast({ tipe: 'error', judul: 'Unit belum tersimpan', desk: res.pesan || 'Periksa koneksi lalu coba lagi.' });
+        return { ok: false, pesan: res.pesan };
       }
+      if (!isDemo) {
+        const idUnit: string | undefined = res.data?.unitsCreated?.[0];
+        toast({ judul: `${data.nama} dicatat`, desk: `${idUnit || ''} · IMEI ...${String(data.imei).slice(-4)} · modal ${rupiah((data.hargaBeli || 0) + (data.biayaLain || 0))}` });
+        if (idUnit && data.fotoPosisi && Object.keys(data.fotoPosisi).length > 0) {
+          const fotoPreview = Object.values(data.fotoPosisi).filter(Boolean);
+          setStokList(l => l.map(u => u.id === idUnit ? { ...u, foto: fotoPreview } : u));
+          void unggahFotoUnit(idUnit, data.fotoPosisi).then(() => muatSemua());
+        } else {
+          void muatSemua();
+        }
+        return { ok: true };
+      }
+      const urutUnit = urutanBerikut(stokList.map(u => u.id), 'UNT');
+      const id = res.data?.unitsCreated?.[0] || nomorDokumen('UNT', urutUnit);
+      const modal = (data.hargaBeli || 0) + (data.biayaLain || 0);
+      const unit: UnitHP = {
+        id, nama: data.nama, merek: data.merek || 'HP', model: data.model || data.nama, imei: data.imei, imei2: data.imei2,
+        kondisi: data.kondisi || 'Bekas', grade: data.grade, kelengkapan: (data.kelengkapan as UnitHP['kelengkapan']) || 'Fullset', baterai: data.baterai,
+        bebasKunci: (data.bebasKunci as UnitHP['bebasKunci']) || 'Ya', hargaBeli: data.hargaBeli, biayaLain: data.biayaLain || 0, biayaServis: 0, hpp: modal,
+        hargaJualTarget: data.hargaJualTarget || Math.round(modal * 1.15), status: data.perluServis ? 'Servis' : 'Ready',
+        umurHari: 0, tglMasuk: 'Hari ini', catatan: [data.catatan, data.keluhanServis].filter(Boolean).join(' · '), foto: data.foto || [], sumberSupplier: data.supplier,
+      };
+      setStokList(l => [unit, ...l]);
+      setTransaksiList(l => [{
+        id: nomorDokumen('BELI', urutanBerikut(l.map(x => x.id), 'BELI')), jam: jamWib(), tanggal: tglWib(), tipe: 'Beli',
+        judul: `Beli · ${data.nama}`, subjudul: `${id} • IMEI ...${String(data.imei).slice(-4)}`, pihak: data.supplier || 'Supplier',
+        nominal: modal, status: 'Lunas', items: [{ nama: data.nama, qty: 1, harga: modal, imei: data.imei }], dibayar: modal, sisa: 0,
+      }, ...l]);
+      toast({ judul: `${data.nama} dicatat`, desk: `${id} · IMEI ...${String(data.imei).slice(-4)} · modal ${rupiah(modal)}` });
       return { ok: true };
+    } finally {
+      sedangProses.current = false;
     }
-    const urutUnit = urutanBerikut(stokList.map(u => u.id), 'UNT');
-    const id = res.data?.unitsCreated?.[0] || nomorDokumen('UNT', urutUnit);
-    const modal = (data.hargaBeli || 0) + (data.biayaLain || 0);
-    const unit: UnitHP = {
-      id, nama: data.nama, merek: data.merek || 'HP', model: data.model || data.nama, imei: data.imei, imei2: data.imei2,
-      kondisi: data.kondisi || 'Bekas', grade: data.grade, kelengkapan: (data.kelengkapan as UnitHP['kelengkapan']) || 'Fullset', baterai: data.baterai,
-      bebasKunci: (data.bebasKunci as UnitHP['bebasKunci']) || 'Ya', hargaBeli: data.hargaBeli, biayaLain: data.biayaLain || 0, biayaServis: 0, hpp: modal,
-      hargaJualTarget: data.hargaJualTarget || Math.round(modal * 1.15), status: data.perluServis ? 'Servis' : 'Ready',
-      umurHari: 0, tglMasuk: 'Hari ini', catatan: [data.catatan, data.keluhanServis].filter(Boolean).join(' · '), foto: data.foto || [], sumberSupplier: data.supplier,
-    };
-    setStokList(l => [unit, ...l]);
-    setTransaksiList(l => [{
-      id: nomorDokumen('BELI', urutanBerikut(l.map(x => x.id), 'BELI')), jam: jamWib(), tanggal: tglWib(), tipe: 'Beli',
-      judul: `Beli · ${data.nama}`, subjudul: `${id} • IMEI ...${String(data.imei).slice(-4)}`, pihak: data.supplier || 'Supplier',
-      nominal: modal, status: 'Lunas', items: [{ nama: data.nama, qty: 1, harga: modal, imei: data.imei }], dibayar: modal, sisa: 0,
-    }, ...l]);
-    toast({ judul: `${data.nama} dicatat`, desk: `${id} · IMEI ...${String(data.imei).slice(-4)} · modal ${rupiah(modal)}` });
-    return { ok: true };
   };
 
   const jualLokal = (h: HasilJual) => {
@@ -449,32 +463,36 @@ export function App() {
 
   const handleJualSukses = async (h: HasilJual): Promise<boolean | void> => {
     if (isDemo) { jualLokal(h); return; }
-    const res = await apiCall<HasilServerJual>('simpanPenjualan', h.payload, h.idemKey);
-    if (!res.ok || !res.data) {
-      toast({ tipe: 'error', judul: 'Penjualan belum tersimpan', desk: res.pesan || 'Periksa koneksi lalu coba lagi.', durasi: 8000 });
-      return false;
+    if (sedangProses.current) return false;
+    sedangProses.current = true;
+    try {
+      const res = await apiCall<HasilServerJual>('simpanPenjualan', h.payload, h.idemKey);
+      if (!res.ok || !res.data) {
+        toast({ tipe: 'error', judul: 'Penjualan belum tersimpan', desk: res.pesan || 'Periksa koneksi lalu coba lagi.', durasi: 8000 });
+        return false;
+      }
+      const s = res.data;
+      // Nota memakai angka dan nomor dari server (sumber kebenaran), bukan hitungan layar
+      const nota: DataNota = {
+        ...h.nota, noNota: s.idPenjualan, subtotal: s.subtotal, diskon: s.diskon, totalTagihan: s.total,
+        dibayar: s.dibayar, sisa: s.sisa, garansiSampai: s.garansiSampai,
+        tukarTambah: h.nota.tukarTambah.ada ? { ...h.nota.tukarTambah, nilai: s.nilaiTukarTambah } : h.nota.tukarTambah,
+        jatuhTempo: s.sisa > 0 ? h.nota.jatuhTempo : undefined,
+      };
+      setDraf(null);
+      setNotaAktif(nota);
+      setIsJualOpen(false);
+      setNotaPdf(null);
+      if (s.idUnitTukarTambah && h.tukarTambah) void unggahFotoUnit(s.idUnitTukarTambah, h.tukarTambah.form.foto); // foto HP tukar tambah masuk folder unitnya
+      setTimeout(() => setIsNotaOpen(true), 120);
+      void siapkanPdfNota(s.idPenjualan, true); // gagal membuat PDF tidak membatalkan penjualan: tampil tombol Buat ulang nota
+      toast({ judul: `Penjualan ${s.idPenjualan} tersimpan`, desk: `Total ${rupiah(s.total)}, ${s.sisa > 0 ? `sisa ${rupiah(s.sisa)}` : 'lunas'}.` });
+      void muatSemua();
+      return true;
+    } finally {
+      sedangProses.current = false;
     }
-    const s = res.data;
-    // Nota memakai angka dan nomor dari server (sumber kebenaran), bukan hitungan layar
-    const nota: DataNota = {
-      ...h.nota, noNota: s.idPenjualan, subtotal: s.subtotal, diskon: s.diskon, totalTagihan: s.total,
-      dibayar: s.dibayar, sisa: s.sisa, garansiSampai: s.garansiSampai,
-      tukarTambah: h.nota.tukarTambah.ada ? { ...h.nota.tukarTambah, nilai: s.nilaiTukarTambah } : h.nota.tukarTambah,
-      jatuhTempo: s.sisa > 0 ? h.nota.jatuhTempo : undefined,
-    };
-    setDraf(null);
-    setNotaAktif(nota);
-    setIsJualOpen(false);
-    setNotaPdf(null);
-    if (s.idUnitTukarTambah && h.tukarTambah) void unggahFotoUnit(s.idUnitTukarTambah, h.tukarTambah.form.foto); // foto HP tukar tambah masuk folder unitnya
-    setTimeout(() => setIsNotaOpen(true), 120);
-    void siapkanPdfNota(s.idPenjualan, true); // gagal membuat PDF tidak membatalkan penjualan: tampil tombol Buat ulang nota
-    toast({ judul: `Penjualan ${s.idPenjualan} tersimpan`, desk: `Total ${rupiah(s.total)}, ${s.sisa > 0 ? `sisa ${rupiah(s.sisa)}` : 'lunas'}.` });
-    void muatSemua();
-    return true;
   };
-
-  const sedangProses = useRef(false);
 
   const bayarLokal = (tghId: string, nominal: number, metode: string, catatan: string) => {
     const t = tagihanList.find(x => x.id === tghId);
@@ -552,20 +570,32 @@ export function App() {
 
   const tambahKontak = async (k: KontakItem) => {
     if (isDemo) { setKontakList(l => [k, ...l]); toast({ judul: `${k.nama} ditambahkan ke kontak` }); return; }
-    const res = await apiCall('simpanKontak', sesuai<KontakInput>({ nama: k.nama, tipe: k.tipe === 'Keduanya' ? 'Pelanggan' : k.tipe, noWa: k.noWa, alamat: k.alamat, catatan: k.catatan }), buatIdemKey());
-    if (!res.ok) { toast({ tipe: 'error', judul: 'Kontak belum tersimpan', desk: res.pesan, durasi: 8000 }); return; }
-    toast({ judul: `${k.nama} ditambahkan ke kontak` });
-    void muatSemua();
+    if (sedangProses.current) return;
+    sedangProses.current = true;
+    try {
+      const res = await apiCall('simpanKontak', sesuai<KontakInput>({ nama: k.nama, tipe: k.tipe === 'Keduanya' ? 'Pelanggan' : k.tipe, noWa: k.noWa, alamat: k.alamat, catatan: k.catatan }), buatIdemKey());
+      if (!res.ok) { toast({ tipe: 'error', judul: 'Kontak belum tersimpan', desk: res.pesan, durasi: 8000 }); return; }
+      toast({ judul: `${k.nama} ditambahkan ke kontak` });
+      void muatSemua();
+    } finally {
+      sedangProses.current = false;
+    }
   };
 
   const tambahKatalog = async (p: ProdukKatalog) => {
     if (isDemo) { setKatalogList(l => [p, ...l]); toast({ judul: `${p.merek} ${p.model} masuk katalog` }); return; }
-    const res = await apiCall('simpanProduk', sesuai<ProdukInput>({
-      jenis: p.jenis, platform: p.platform, merek: p.merek, model: p.model, varian: p.varian, warna: p.warna, hargaStandar: p.hargaStandar,
-    }), buatIdemKey());
-    if (!res.ok) { toast({ tipe: 'error', judul: 'Produk belum tersimpan', desk: res.pesan, durasi: 8000 }); return; }
-    toast({ judul: `${p.merek} ${p.model} masuk katalog` });
-    void muatSemua();
+    if (sedangProses.current) return;
+    sedangProses.current = true;
+    try {
+      const res = await apiCall('simpanProduk', sesuai<ProdukInput>({
+        jenis: p.jenis, platform: p.platform || platformDariMerek(p.merek), merek: p.merek, model: p.model, varian: p.varian, warna: p.warna, hargaStandar: p.hargaStandar,
+      }), buatIdemKey());
+      if (!res.ok) { toast({ tipe: 'error', judul: 'Produk belum tersimpan', desk: res.pesan, durasi: 8000 }); return; }
+      toast({ judul: `${p.merek} ${p.model} masuk katalog` });
+      void muatSemua();
+    } finally {
+      sedangProses.current = false;
+    }
   };
 
   const servisSelesaiLokal = (id: string, part: number, jasa: number) => {
@@ -580,21 +610,27 @@ export function App() {
 
   const handleServisSelesai = async (id: string, part: number, jasa: number): Promise<boolean | void> => {
     if (isDemo) { servisSelesaiLokal(id, part, jasa); return; }
-    const s = servisList.find(x => x.id === id);
-    const res = await apiCall<{ hppLama?: number; hppBaru?: number; labaServis?: number }>(
-      'updateStatusServis', id, 'Selesai', { biayaPart: part, biayaJasa: jasa, jadikanReady: s?.jenis === 'Internal' }, buatIdemKey());
-    if (!res.ok || !res.data) {
-      toast({ tipe: 'error', judul: 'Servis belum diselesaikan', desk: res.pesan || 'Periksa koneksi lalu coba lagi.', durasi: 8000 });
-      return false;
+    if (sedangProses.current) return false;
+    sedangProses.current = true;
+    try {
+      const s = servisList.find(x => x.id === id);
+      const res = await apiCall<{ hppLama?: number; hppBaru?: number; labaServis?: number }>(
+        'updateStatusServis', id, 'Selesai', { biayaPart: part, biayaJasa: jasa, jadikanReady: s?.jenis === 'Internal' }, buatIdemKey());
+      if (!res.ok || !res.data) {
+        toast({ tipe: 'error', judul: 'Servis belum diselesaikan', desk: res.pesan || 'Periksa koneksi lalu coba lagi.', durasi: 8000 });
+        return false;
+      }
+      void muatSemua();
+      const r = res.data;
+      toast({
+        judul: `Servis ${s?.namaPerangkat || id} selesai`,
+        desk: r.hppBaru !== undefined ? `Unit kembali Ready. Modal naik ${rupiah(r.hppLama || 0)} → ${rupiah(r.hppBaru)}.`
+          : r.labaServis !== undefined ? `Laba servis ${rupiah(r.labaServis)}.` : `Biaya ${rupiah(part + jasa)}.`,
+      });
+      return true;
+    } finally {
+      sedangProses.current = false;
     }
-    void muatSemua();
-    const r = res.data;
-    toast({
-      judul: `Servis ${s?.namaPerangkat || id} selesai`,
-      desk: r.hppBaru !== undefined ? `Unit kembali Ready. Modal naik ${rupiah(r.hppLama || 0)} → ${rupiah(r.hppBaru)}.`
-        : r.labaServis !== undefined ? `Laba servis ${rupiah(r.labaServis)}.` : `Biaya ${rupiah(part + jasa)}.`,
-    });
-    return true;
   };
 
   /** Antri -> Dikerjakan dan Selesai -> Diambil. Di mode nyata disimpan ke server (sebelumnya hanya berubah di layar). */
@@ -605,11 +641,17 @@ export function App() {
       toast({ judul: status === 'Dikerjakan' ? 'Servis mulai dikerjakan' : (s?.jenis === 'Internal' ? 'Unit ditandai sudah diambil' : 'Servis diserahkan ke pelanggan'), desk: s?.namaPerangkat });
       return;
     }
-    const res = await apiCall('updateStatusServis', id, status, {}, buatIdemKey());
-    if (!res.ok) { toast({ tipe: 'error', judul: 'Status servis belum berubah', desk: res.pesan || 'Periksa koneksi lalu coba lagi.', durasi: 8000 }); return false; }
-    void muatSemua();
-    toast({ judul: status === 'Dikerjakan' ? 'Servis mulai dikerjakan' : 'Servis ditandai diambil', desk: s?.namaPerangkat });
-    return true;
+    if (sedangProses.current) return false;
+    sedangProses.current = true;
+    try {
+      const res = await apiCall('updateStatusServis', id, status, {}, buatIdemKey());
+      if (!res.ok) { toast({ tipe: 'error', judul: 'Status servis belum berubah', desk: res.pesan || 'Periksa koneksi lalu coba lagi.', durasi: 8000 }); return false; }
+      void muatSemua();
+      toast({ judul: status === 'Dikerjakan' ? 'Servis mulai dikerjakan' : 'Servis ditandai diambil', desk: s?.namaPerangkat });
+      return true;
+    } finally {
+      sedangProses.current = false;
+    }
   };
 
   const tambahServis = async (baru: ServisItem): Promise<boolean | void> => {
@@ -620,21 +662,27 @@ export function App() {
       toast({ judul: `Servis ${baru.id} diterima`, desk: baru.namaPerangkat });
       return;
     }
-    const vendor = /vendor/i.test(baru.teknisi);
-    const res = await apiCall<{ idServis: string }>('simpanServis', sesuai<ServisInput>({
-      jenis: baru.jenis, idUnit: baru.unitHpId, imei: baru.imei === '-' ? undefined : baru.imei, namaPerangkat: baru.namaPerangkat,
-      namaPelanggan: baru.namaPelanggan, noWa: baru.noWa === '-' ? undefined : baru.noWa, keluhan: baru.keluhan,
-      pelaksana: vendor ? 'Vendor luar' : 'Teknisi sendiri', namaVendor: baru.teknisi, // nama teknisi atau vendor sesuai yang diketik
-      estimasiBiaya: baru.estimasiBiaya, tarifPelanggan: baru.tarifPelanggan,
-    }), buatIdemKey());
-    if (!res.ok || !res.data) {
-      toast({ tipe: 'error', judul: 'Servis belum tersimpan', desk: res.pesan || 'Periksa koneksi lalu coba lagi.', durasi: 8000 });
-      return false;
+    if (sedangProses.current) return false;
+    sedangProses.current = true;
+    try {
+      const vendor = /vendor/i.test(baru.teknisi);
+      const res = await apiCall<{ idServis: string }>('simpanServis', sesuai<ServisInput>({
+        jenis: baru.jenis, idUnit: baru.unitHpId, imei: baru.imei === '-' ? undefined : baru.imei, namaPerangkat: baru.namaPerangkat,
+        namaPelanggan: baru.namaPelanggan, noWa: baru.noWa === '-' ? undefined : baru.noWa, keluhan: baru.keluhan,
+        pelaksana: vendor ? 'Vendor luar' : 'Teknisi sendiri', namaVendor: baru.teknisi,
+        estimasiBiaya: baru.estimasiBiaya, tarifPelanggan: baru.tarifPelanggan,
+      }), buatIdemKey());
+      if (!res.ok || !res.data) {
+        toast({ tipe: 'error', judul: 'Servis belum tersimpan', desk: res.pesan || 'Periksa koneksi lalu coba lagi.', durasi: 8000 });
+        return false;
+      }
+      setServisUnitTarget(null);
+      toast({ judul: `Servis ${res.data.idServis} diterima`, desk: baru.namaPerangkat });
+      void muatSemua();
+      return true;
+    } finally {
+      sedangProses.current = false;
     }
-    setServisUnitTarget(null);
-    toast({ judul: `Servis ${res.data.idServis} diterima`, desk: baru.namaPerangkat });
-    void muatSemua();
-    return true;
   };
 
   const cekGaransiServer = async (q: string): Promise<HasilCariGaransi | null> => {
@@ -645,28 +693,40 @@ export function App() {
 
   const simpanKlaim = async (k: KlaimItem, e: KlaimEkstra): Promise<boolean | void> => {
     if (isDemo) { setKlaimList(l => [k, ...l]); toast({ judul: `Klaim ${k.id} dibuka`, desk: k.namaBarang }); return; }
-    const res = await apiCall<{ idKlaim: string; masihGaransi: boolean }>('simpanKlaim', sesuai<KlaimInput>({
-      referensi: k.notaId, jenis: k.jenis, alasan: e.alasanPokok, catatan: e.catatan, tindakan: e.tindakan,
-      nilaiRefund: e.nilaiRefund, unitPengganti: e.unitPengganti, kondisiKembali: e.kondisiKembali,
-    }), buatIdemKey());
-    if (!res.ok || !res.data) {
-      toast({ tipe: 'error', judul: 'Klaim belum tersimpan', desk: res.pesan || 'Periksa koneksi lalu coba lagi.', durasi: 8000 });
-      return false;
+    if (sedangProses.current) return false;
+    sedangProses.current = true;
+    try {
+      const res = await apiCall<{ idKlaim: string; masihGaransi: boolean }>('simpanKlaim', sesuai<KlaimInput>({
+        referensi: k.notaId, jenis: k.jenis, alasan: e.alasanPokok, catatan: e.catatan, tindakan: e.tindakan,
+        nilaiRefund: e.nilaiRefund, unitPengganti: e.unitPengganti, kondisiKembali: e.kondisiKembali,
+      }), buatIdemKey());
+      if (!res.ok || !res.data) {
+        toast({ tipe: 'error', judul: 'Klaim belum tersimpan', desk: res.pesan || 'Periksa koneksi lalu coba lagi.', durasi: 8000 });
+        return false;
+      }
+      void muatSemua();
+      toast({ judul: `Klaim ${res.data.idKlaim} dicatat`, desk: res.data.masihGaransi ? k.namaBarang : `${k.namaBarang} (garansi sudah habis)` });
+      return true;
+    } finally {
+      sedangProses.current = false;
     }
-    void muatSemua();
-    toast({ judul: `Klaim ${res.data.idKlaim} dicatat`, desk: res.data.masihGaransi ? k.namaBarang : `${k.namaBarang} (garansi sudah habis)` });
-    return true;
   };
 
   const tambahBiaya = async (b: BiayaOperasional): Promise<boolean | void> => {
     if (isDemo) { setBiayaList(l => [b, ...l]); toast({ judul: `Biaya ${b.kategori} dicatat`, desk: `${rupiah(b.nominal)} · ${b.tanggal}` }); return; }
-    const d = parseTgl(b.tanggal);
-    if (!d) { toast({ tipe: 'error', judul: 'Tanggal biaya tidak terbaca', desk: 'Tulis seperti 05 Okt 2026.' }); return false; }
-    const res = await apiCall('simpanBiaya', sesuai<BiayaInput>({ kategori: b.kategori, nominal: b.nominal, tanggal: d.toISOString().slice(0, 10), catatan: b.keterangan }), buatIdemKey());
-    if (!res.ok) { toast({ tipe: 'error', judul: 'Biaya belum tersimpan', desk: res.pesan || 'Periksa koneksi lalu coba lagi.', durasi: 8000 }); return false; }
-    toast({ judul: `Biaya ${b.kategori} dicatat`, desk: `${rupiah(b.nominal)} · ${b.tanggal}` });
-    void muatSemua();
-    return true;
+    if (sedangProses.current) return false;
+    sedangProses.current = true;
+    try {
+      const d = parseTgl(b.tanggal);
+      if (!d) { toast({ tipe: 'error', judul: 'Tanggal biaya tidak terbaca', desk: 'Tulis seperti 05 Okt 2026.' }); return false; }
+      const res = await apiCall('simpanBiaya', sesuai<BiayaInput>({ kategori: b.kategori, nominal: b.nominal, tanggal: d.toISOString().slice(0, 10), catatan: b.keterangan }), buatIdemKey());
+      if (!res.ok) { toast({ tipe: 'error', judul: 'Biaya belum tersimpan', desk: res.pesan || 'Periksa koneksi lalu coba lagi.', durasi: 8000 }); return false; }
+      toast({ judul: `Biaya ${b.kategori} dicatat`, desk: `${rupiah(b.nominal)} · ${b.tanggal}` });
+      void muatSemua();
+      return true;
+    } finally {
+      sedangProses.current = false;
+    }
   };
 
   const muatLaporan = async (periodeApi: string): Promise<LaporanLayar | null> => {
@@ -784,7 +844,7 @@ export function App() {
             <div class="sidebar-brand-text"><span class="sidebar-brand-title">EPIC PHONE</span><span class="sidebar-brand-sub">PURWOKERTO</span></div>
           </div>
           <button type="button" class="icon-btn sidebar-toggle" onClick={() => setCiut(!ciut)} aria-label={ciut ? 'Besarkan menu samping' : 'Kecilkan menu samping'} aria-expanded={!ciut} title={ciut ? 'Besarkan menu samping' : 'Kecilkan menu samping'}>
-            <IconSidebar size={20} />
+            <IconSidebar size={20} ciut={ciut} />
           </button>
         </div>
         <div class="sidebar-new">

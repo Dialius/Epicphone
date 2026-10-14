@@ -42,9 +42,12 @@ export function DetailTagihanModal({ isOpen, onClose, tagihan, onSimpanPembayara
     }
   };
 
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   const handleSubmitBayar = (e: Event) => {
     e.preventDefault();
-    if (nominalAngka <= 0 || isMelebihi) return;
+    if (nominalAngka <= 0 || isMelebihi || isSubmitting) return;
+    setIsSubmitting(true);
     onSimpanPembayaran(tagihan.id, nominalAngka, metode, catatan);
     setIsBayarSheetOpen(false);
     onClose();
@@ -246,8 +249,8 @@ export function DetailTagihanModal({ isOpen, onClose, tagihan, onSimpanPembayara
                   <button type="button" class="btn btn-secondary" onClick={() => setIsBayarSheetOpen(false)} style={{ flex: 1 }}>
                     Batal
                   </button>
-                  <button type="submit" class="btn btn-primary" disabled={isMelebihi || nominalAngka <= 0} style={{ flex: 2 }}>
-                    Simpan Pembayaran
+                  <button type="submit" class="btn btn-primary" disabled={isMelebihi || nominalAngka <= 0 || isSubmitting} style={{ flex: 2 }}>
+                    {isSubmitting ? <span class="spinner" /> : null} Simpan Pembayaran
                   </button>
                 </div>
               </form>

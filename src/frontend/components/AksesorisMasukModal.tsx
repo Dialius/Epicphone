@@ -67,6 +67,7 @@ export function AksesorisMasukModal({ onClose, onSimpan, onPilihHp, aksesorisLis
   const dirty = !!(nama || qty || hargaBeli || catatan);
 
   const simpan = async (tutup: boolean) => {
+    if (menyimpan) return;
     setCoba(true);
     if (!valid) return;
     setMenyimpan(true);

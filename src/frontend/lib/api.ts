@@ -102,14 +102,61 @@ function saveLocalStok(list: UnitHP[]) {
  * Panggil fungsi backend Apps Script secara asynchronous.
  * Bila di browser biasa (mode dev lokal), otomatis memakai mock handler.
  */
+// Anti-spam & Anti-duplikasi tingkat jaringan / request (in-flight request deduplication & coalescing)
+const inFlightMutasi = new Map<string, Promise<ApiResponse<any>>>();
+const mutasiTerakhir = new Map<string, { waktu: number; res: ApiResponse<any> }>();
+
+function kunciMutasi(fnName: string, args: any[]): string {
+  // Samakan tanda tangan payload dengan menormalisasi idemKey dinamis
+  const argBersih = args.map(a => (typeof a === 'string' && a.startsWith('idem_') ? 'IDEM_KEY' : a));
+  try {
+    return fnName + ':' + JSON.stringify(argBersih);
+  } catch {
+    return fnName + ':' + String(argBersih[0] || '');
+  }
+}
+
 /**
  * Panggil fungsi server. Pembacaan (get*, cari*, cek*) otomatis diulang sekali bila jaringan gagal;
- * penulisan tidak pernah diulang otomatis (pengguna yang memutuskan; idemKey mencegah ganda).
+ * penulisan (mutasi) dilindungi in-flight coalescing & dedup anti-spam agar klik ganda/cepat tidak memicu duplikasi.
  */
 export async function apiCall<T = unknown>(fnName: string, ...args: any[]): Promise<ApiResponse<T>> {
-  const hasil = await panggilSekali<T>(fnName, ...args);
   const baca = /^(get|cari|cek)/.test(fnName);
-  if (!hasil.ok && baca && (hasil.kode === 'NETWORK_ERROR' || hasil.kode === 'TIMEOUT')) return panggilSekali<T>(fnName, ...args);
+
+  if (!baca) {
+    const k = kunciMutasi(fnName, args);
+
+    // 1. Jika request mutasi identik sedang berjalan (in-flight), coalescing ke Promise yang sama
+    const sedangJalan = inFlightMutasi.get(k);
+    if (sedangJalan) {
+      return sedangJalan as Promise<ApiResponse<T>>;
+    }
+
+    // 2. Jika mutasi identik baru saja sukses dalam 1200ms terakhir, gunakan hasil sebelumnya
+    const baruSaja = mutasiTerakhir.get(k);
+    if (baruSaja && Date.now() - baruSaja.waktu < 1200 && baruSaja.res.ok) {
+      return baruSaja.res as ApiResponse<T>;
+    }
+
+    // Jalankan dengan perlindungan in-flight
+    const janji = panggilSekali<T>(fnName, ...args).then(res => {
+      inFlightMutasi.delete(k);
+      if (res.ok) {
+        mutasiTerakhir.set(k, { waktu: Date.now(), res });
+        setTimeout(() => mutasiTerakhir.delete(k), 4000);
+      }
+      return res;
+    }).catch(err => {
+      inFlightMutasi.delete(k);
+      throw err;
+    });
+
+    inFlightMutasi.set(k, janji);
+    return janji;
+  }
+
+  const hasil = await panggilSekali<T>(fnName, ...args);
+  if (!hasil.ok && (hasil.kode === 'NETWORK_ERROR' || hasil.kode === 'TIMEOUT')) return panggilSekali<T>(fnName, ...args);
   return hasil;
 }
 

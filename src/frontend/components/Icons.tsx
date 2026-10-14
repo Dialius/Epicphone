@@ -504,12 +504,27 @@ export function IconRows({ size = 20, class: cls }: IconProps) {
   return (<svg width={size} height={size} {...svgp} class={cls} aria-hidden="true"><rect x="3" y="4" width="18" height="6" rx="1.5"/><rect x="3" y="14" width="18" height="6" rx="1.5"/></svg>);
 }
 
-/** Ikon panel samping (sidebar): dipakai untuk tombol ciutkan/besarkan menu */
-export function IconSidebar({ size = 20, class: cls }: IconProps) {
+/** Ikon panel samping (sidebar): dilengkapi micro-animation arah buka/tutup */
+export function IconSidebar({ size = 20, class: cls, ciut = false }: IconProps & { ciut?: boolean }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" class={cls} aria-hidden="true">
-      <rect width="18" height="18" x="3" y="3" rx="2"/>
-      <path d="M9 3v18"/>
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      class={`icon-sidebar-anim ${ciut ? 'ciut' : 'lebar'} ${cls || ''}`}
+      aria-hidden="true"
+    >
+      <rect width="18" height="18" x="3" y="3" rx="2.5" class="sb-rect" />
+      <path d="M9 3v18" class="sb-line" />
+      <path
+        d={ciut ? "M13 9l3 3-3 3" : "M16 15l-3-3 3-3"}
+        class="sb-arrow"
+      />
     </svg>
   );
 }

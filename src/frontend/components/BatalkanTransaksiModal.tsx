@@ -22,6 +22,7 @@ export function BatalkanTransaksiModal({ onClose, transaksi, onKonfirmasiBatal }
   const [alasan, setAlasan] = useState<typeof ALASAN[number]>('Salah input');
   const [catatan, setCatatan] = useState('');
   const [coba, setCoba] = useState(false);
+  const [memproses, setMemproses] = useState(false);
   if (!transaksi) return null;
   const t = transaksi;
   const perluCatatan = alasan === 'Lainnya' && !catatan.trim();
@@ -36,15 +37,18 @@ export function BatalkanTransaksiModal({ onClose, transaksi, onKonfirmasiBatal }
 
   const konfirmasi = () => {
     setCoba(true);
-    if (perluCatatan) return;
+    if (perluCatatan || memproses) return;
+    setMemproses(true);
     onKonfirmasiBatal(t.id, alasan, catatan.trim());
   };
 
   return (
     <ModalShell onClose={onClose} title={`Batalkan ${t.id}?`} subtitle={`${t.judul.replace(/^[A-Za-z]+\s·\s/, '')} · ${rupiah(t.nominal)}`} size="sm" initialFocus=".sheet-footer .btn-secondary"
       footer={<>
-        <button type="button" class="btn btn-secondary" onClick={onClose}>Kembali</button>
-        <button type="button" class="btn btn-danger" onClick={konfirmasi}>Batalkan transaksi</button>
+        <button type="button" class="btn btn-secondary" disabled={memproses} onClick={onClose}>Kembali</button>
+        <button type="button" class="btn btn-danger" disabled={memproses} onClick={konfirmasi}>
+          {memproses ? <span class="spinner" /> : null} Batalkan transaksi
+        </button>
       </>}>
       <Banner tipe="warning" icon={<IconAlertTriangle size={20} />}>
         <strong>Yang akan terjadi:</strong>

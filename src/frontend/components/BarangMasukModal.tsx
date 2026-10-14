@@ -94,6 +94,7 @@ export function BarangMasukModal({ onClose, onSimpan, onPilihAksesoris, stokList
   const sisaHutang = Math.max(0, beli - dibayarSekarang);
 
   const simpan = async (mode: 'tutup' | 'lagi') => {
+    if (menyimpan !== null) return;
     setCoba(true);
     if (!valid) { bodyRef.current?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus(); return; }
     setMenyimpan(mode);
