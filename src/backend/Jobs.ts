@@ -89,7 +89,19 @@ export function jalankanBersihkan(): void {
         n++;
       }
     }
-    return `${n} draf penjualan macet ditandai Gagal.`;
+    let pangkasFoto = 0;
+    try {
+      const folderHp = subfolder(FOLDER.FOTO_HP);
+      const terhapusIt = folderHp.getFoldersByName(FOLDER.TERHAPUS);
+      if (terhapusIt.hasNext()) {
+        const folderTerhapus = terhapusIt.next();
+        pangkasFoto = pangkas(folderTerhapus, 'EPICPHONE_', { lebihDariHari: 60 });
+      }
+    } catch {
+      // folder _TERHAPUS belum dibuat atau Drive sedang sibuk
+    }
+
+    return `${n} draf penjualan macet ditandai Gagal; ${pangkasFoto} foto lama di _TERHAPUS dibersihkan.`;
   }));
 }
 

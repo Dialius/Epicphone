@@ -87,7 +87,7 @@ export function App() {
   const [ciut, setCiut] = usePersist('sidebar-ciut', false);
   const [demoDitutup, setDemoDitutup] = usePersist('demo-ditutup', false);
   const isDark = tema === 'gelap' || (tema === 'sistem' && sistemGelap);
-  const isDemo = !(typeof window !== 'undefined' && window.google?.script?.run);
+  const isDemo = false;
 
   // ---- data (tersimpan; versi data dicek) ----
   useMemo(() => {
@@ -360,8 +360,13 @@ export function App() {
     if (!isDemo) {
       const idUnit: string | undefined = res.data?.unitsCreated?.[0];
       toast({ judul: `${data.nama} dicatat`, desk: `${idUnit || ''} · IMEI ...${String(data.imei).slice(-4)} · modal ${rupiah((data.hargaBeli || 0) + (data.biayaLain || 0))}` });
-      void muatSemua();
-      if (idUnit && data.fotoPosisi) void unggahFotoUnit(idUnit, data.fotoPosisi);
+      if (idUnit && data.fotoPosisi && Object.keys(data.fotoPosisi).length > 0) {
+        const fotoPreview = Object.values(data.fotoPosisi).filter(Boolean);
+        setStokList(l => l.map(u => u.id === idUnit ? { ...u, foto: fotoPreview } : u));
+        void unggahFotoUnit(idUnit, data.fotoPosisi).then(() => muatSemua());
+      } else {
+        void muatSemua();
+      }
       return { ok: true };
     }
     const urutUnit = urutanBerikut(stokList.map(u => u.id), 'UNT');
@@ -718,9 +723,14 @@ export function App() {
     },
     unggah: async (unitId: string, posisi: string, f: { base64Data: string }) => {
       const r = await apiCall('unggahFoto', { jenisReferensi: 'Unit', idReferensi: unitId, posisi, base64Data: f.base64Data, mimeType: 'image/jpeg' }, buatIdemKey());
+      if (r.ok) void muatSemua();
       return { ok: r.ok, pesan: r.pesan };
     },
-    hapus: async (idBerkas: string) => (await apiCall('hapusFoto', idBerkas)).ok,
+    hapus: async (idBerkas: string) => {
+      const ok = (await apiCall('hapusFoto', idBerkas)).ok;
+      if (ok) void muatSemua();
+      return ok;
+    },
   };
 
   const handleKirimKeServis = (u: UnitHP) => { setServisUnitTarget(u); go('servis'); };

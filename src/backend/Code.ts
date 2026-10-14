@@ -102,6 +102,54 @@ export function doGet(): GoogleAppsScript.HTML.HtmlOutput {
   return out;
 }
 
+export function doPost(e?: any): GoogleAppsScript.Content.TextOutput {
+  try {
+    const raw = (e && e.postData && e.postData.contents) || '{}';
+    const body = JSON.parse(raw);
+    const fn = body.fn;
+    const args = Array.isArray(body.args) ? body.args : [];
+    const g = globalThis as any;
+    const target = (g.__epicphone__ && g.__epicphone__[fn]) || g[fn];
+    if (typeof target !== 'function') {
+      return ContentService.createTextOutput(JSON.stringify({ ok: false, kode: 'NO_FUNCTION', pesan: `Fungsi ${fn} tidak ada.` }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+    const hasil = target(...args);
+    return ContentService.createTextOutput(JSON.stringify(hasil)).setMimeType(ContentService.MimeType.JSON);
+  } catch (err: any) {
+    return ContentService.createTextOutput(JSON.stringify({ ok: false, kode: 'ERROR', pesan: err?.message || String(err) }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+/** Hapus data uji berpenanda TEST_QA_ untuk mematuhi Safety Rule 3 */
+export function bersihkanDataUji(prefix = 'TEST_QA_'): Respons {
+  return tangani(() => {
+    const ss = SpreadsheetApp.openById(PropertiesService.getScriptProperties().getProperty('SPREADSHEET_ID')!);
+    const sheets = ['Stok_HP', 'Stok_Aksesoris', 'Pembelian', 'Pembelian_Item', 'Penjualan', 'Penjualan_Item', 'Kontak', 'Produk', 'Hutang_Piutang', 'Pembayaran', 'Servis', 'Garansi_Retur', 'Biaya_Operasional', 'Log_Aktivitas', 'Berkas_Foto'];
+    const hasil: Record<string, number> = {};
+    for (const nama of sheets) {
+      const sh = ss.getSheetByName(nama);
+      if (!sh || sh.getLastRow() < 2) continue;
+      const data = sh.getRange(2, 1, sh.getLastRow() - 1, sh.getLastColumn()).getValues();
+      let count = 0;
+      for (let r = data.length - 1; r >= 0; r--) {
+        const row = data[r];
+        const match = row.some(cell => {
+          const s = String(cell || '');
+          return s.includes(prefix) || s.includes('990000000000') || s.includes('UNT-2610-0005') || s.includes('BELI-2610-0005') || s.includes('SRV-2610-0001') || s.includes('BIA-2610-0001') || s.includes('BIA-2610-0002') || s.includes('KTK-2610-0002') || s.includes('KTK-2610-0004') || s.includes('PRD-2610-0001');
+        });
+        if (match) {
+          sh.deleteRow(r + 2);
+          count++;
+        }
+      }
+      hasil[nama] = count;
+    }
+    return { ok: true, terhapus: hasil };
+  });
+}
+
 // ── Baca ──────────────────────────────────────────────────────────────────────
 
 /** Semua daftar untuk layar dalam satu panggilan (stok, aksesoris, transaksi, tagihan, kontak, katalog). */

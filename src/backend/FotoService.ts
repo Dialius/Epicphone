@@ -97,7 +97,7 @@ export function unggahFoto(input: UnggahFotoInput): HasilUnggahFoto {
     const bytes = Utilities.base64Decode(input.base64Data);
     if (!bytes.length) throw new GalatBisnis('FOTO_KOSONG', 'Berkas foto kosong.');
     if (bytes.length > FOTO_MAKS_BYTES) {
-      throw new GalatBisnis('FOTO_TERLALU_BESAR', `Ukuran foto melebihi batas 1,5 MB (${Math.round(bytes.length / 1024)} KB).`);
+      throw new GalatBisnis('FOTO_TERLALU_BESAR', `Ukuran foto melebihi batas 2 MB (${Math.round(bytes.length / 1024)} KB).`);
     }
 
     // 3. Batas jumlah foto aktif per referensi
@@ -111,15 +111,22 @@ export function unggahFoto(input: UnggahFotoInput): HasilUnggahFoto {
 
     // 5. Simpan ke Drive dan catat
     const file = folderTujuan(jenis, input.idReferensi).createFile(Utilities.newBlob(bytes, input.mimeType, namaFile));
+    try {
+      file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    } catch {
+      // lanjut bila kebijakan organisasi membatasi sharing
+    }
     const idBerkas = buatId(PREFIX_ID.BERKAS);
     const ukuranKB = Math.round(bytes.length / 1024);
+    const fileId = file.getId();
+    const linkDirect = `https://lh3.googleusercontent.com/d/${fileId}`;
     Db.append(SHEET.BERKAS_FOTO, {
       ID_Berkas: idBerkas, Tanggal: tglIso(now), Jam: jamHm(now), Jenis_Referensi: jenis, ID_Referensi: input.idReferensi,
-      Posisi_atau_Tahap: kode, Urutan: urutan, Nama_Berkas: namaFile, ID_File_Drive: file.getId(), Link: file.getUrl(),
+      Posisi_atau_Tahap: kode, Urutan: urutan, Nama_Berkas: namaFile, ID_File_Drive: fileId, Link: linkDirect,
       Ukuran_KB: ukuranKB, Status: 'Aktif',
     });
     log('Tambah', SHEET.BERKAS_FOTO, idBerkas, `Foto ${kode || jenis} untuk ${input.idReferensi} (${ukuranKB} KB)`);
-    return { idBerkas, namaBerkas: namaFile, idFileDrive: file.getId(), linkDrive: file.getUrl(), ukuranKB, pratinjau: pratinjauDari(file) };
+    return { idBerkas, namaBerkas: namaFile, idFileDrive: fileId, linkDrive: linkDirect, ukuranKB, pratinjau: pratinjauDari(file) || linkDirect };
   });
 }
 
@@ -138,12 +145,14 @@ export function daftarFoto(jenis: JenisReferensi, idReferensi: string, denganPra
     .filter(b => b.Jenis_Referensi === jenis && b.ID_Referensi === idReferensi && b.Status === 'Aktif');
   return baris.map(b => {
     let pratinjau = '';
-    if (denganPratinjau) {
-      try { pratinjau = pratinjauDari(DriveApp.getFileById(String(b.ID_File_Drive))); } catch { /* berkas hilang dari Drive */ }
+    const fileId = String(b.ID_File_Drive ?? '');
+    if (denganPratinjau && fileId) {
+      try { pratinjau = pratinjauDari(DriveApp.getFileById(fileId)); } catch { /* berkas hilang dari Drive */ }
     }
+    const directLink = fileId ? `https://lh3.googleusercontent.com/d/${fileId}` : String(b.Link);
     return {
       idBerkas: String(b.ID_Berkas), posisi: String(b.Posisi_atau_Tahap), urutan: Number(b.Urutan) || 1,
-      nama: String(b.Nama_Berkas), link: String(b.Link), pratinjau,
+      nama: String(b.Nama_Berkas), link: directLink, pratinjau: pratinjau || directLink,
     };
   });
 }

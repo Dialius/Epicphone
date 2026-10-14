@@ -113,7 +113,7 @@ export async function apiCall<T = unknown>(fnName: string, ...args: any[]): Prom
   return hasil;
 }
 
-function panggilSekali<T = unknown>(fnName: string, ...args: any[]): Promise<ApiResponse<T>> {
+async function panggilSekali<T = unknown>(fnName: string, ...args: any[]): Promise<ApiResponse<T>> {
   // 1. Production Mode: Menggunakan google.script.run
   if (typeof window !== 'undefined' && window.google?.script?.run) {
     return new Promise((resolve) => {
@@ -138,7 +138,22 @@ function panggilSekali<T = unknown>(fnName: string, ...args: any[]): Promise<Api
     });
   }
 
-  // 2. Dev Mock Mode (Di laptop lokal tanpa Apps Script)
+  // 2. Dev Mode: terhubung langsung ke backend Apps Script nyata lewat RPC bridge
+  try {
+    const res = await fetch('/api/gas-rpc', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fn: fnName, args }),
+    });
+    if (res.ok) {
+      const json = await res.json();
+      return json as ApiResponse<T>;
+    }
+  } catch {
+    // fallback bila bridge tidak aktif
+  }
+
+  // 3. Dev Mock Mode (bila offline)
   return new Promise((resolve) => {
     setTimeout(() => {
       const stokList = getLocalStok();

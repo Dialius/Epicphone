@@ -236,7 +236,7 @@ export function FotoUnitForm({ id, f, set, wajib = true, judul = 'Foto unit' }: 
               {ada ? (<><img src={f.foto[p.id]} alt={`Foto ${p.label}`} /><span class="foto-tag">{p.label}</span>
                 <button type="button" class="foto-x" aria-label={`Hapus foto ${p.label}`} onClick={e => { e.preventDefault(); e.stopPropagation(); const c = { ...f.foto }; delete c[p.id]; set({ foto: c }); }}><IconClose size={14} /></button></>)
                 : (<><IconCamera size={22} /><span>{p.label}</span>{perlu && <span class="wajib-tag">Wajib</span>}</>)}
-              <input type="file" accept="image/*" capture="environment" aria-label={`Ambil foto ${p.label}${perlu ? ' (wajib)' : ''}`} onChange={e => pilih(p.id, e)} />
+              <input type="file" accept="image/*" aria-label={`Pilih atau ambil foto ${p.label}${perlu ? ' (wajib)' : ''}`} onChange={e => pilih(p.id, e)} />
             </label>
           );
         })}

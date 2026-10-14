@@ -722,12 +722,12 @@ describe('Foto dan bukti', () => {
     expect(drive.folder('EPICPHONE_00_SISTEM/04_BUKTI-TRANSAKSI/BIAYA')!.berkas).toHaveLength(1);
   });
 
-  it('validasi: kode tidak sah, tipe berkas, ukuran > 1,5 MB, dan batas 12 foto', () => {
+  it('validasi: kode tidak sah, tipe berkas, ukuran > 2 MB, dan batas 12 foto', () => {
     unit('UNT-2609-0001', IMEI_A);
     expect(galat(() => M.Foto.unggahFoto(foto({ posisi: 'ATAS' }))).kode).toBe('POSISI_TIDAK_VALID');
     expect(galat(() => M.Foto.unggahFoto({ ...foto(), jenisReferensi: 'Servis', idReferensi: 'SRV-1', posisi: 'DEPAN' })).kode).toBe('POSISI_TIDAK_VALID');
     expect(galat(() => M.Foto.unggahFoto(foto({ mimeType: 'application/pdf' }))).kode).toBe('TIPE_BERKAS_TIDAK_VALID');
-    expect(galat(() => M.Foto.unggahFoto(foto({ base64Data: Buffer.alloc(1_600_000, 1).toString('base64') }))).kode).toBe('FOTO_TERLALU_BESAR');
+    expect(galat(() => M.Foto.unggahFoto(foto({ base64Data: Buffer.alloc(2_100_000, 1).toString('base64') }))).kode).toBe('FOTO_TERLALU_BESAR');
     expect(galat(() => M.Foto.unggahFoto(foto({ idReferensi: 'UNT-9999-0001' }))).kode).toBe('UNIT_TIDAK_ADA');
     for (let i = 0; i < 12; i++) M.Foto.unggahFoto(foto());
     expect(galat(() => M.Foto.unggahFoto(foto())).kode).toBe('FOTO_TERLALU_BANYAK');

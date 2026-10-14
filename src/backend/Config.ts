@@ -6,7 +6,7 @@ export const LOCK_TIMEOUT_MS = 20_000;
 export const CACHE_TTL_S = 600; // 10 menit
 export const IDEM_TTL_S = 600;
 export const FOTO_MAKS = 12;
-export const FOTO_MAKS_BYTES = 1_500_000; // 1.5 MB setelah decode base64
+export const FOTO_MAKS_BYTES = 2_097_152; // Maksimal 2 MB (2 * 1024 * 1024) setelah decode base64
 
 export const SHEET = {
   PRODUK: 'Produk',

@@ -72,7 +72,15 @@ export function FotoUnitModal({ isOpen, onClose, unit, onSimpanFoto, server }: P
   // Mode nyata: satu gambar kecil per posisi (foto pertama); gambar kosong bila thumbnail Drive belum siap
   const PLACEHOLDER = "data:image/svg+xml;utf8," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96"><rect width="96" height="96" fill="#E5E7EB"/></svg>');
   const fotoMap: Record<string, string> = server
-    ? serverFoto.reduce<Record<string, string>>((m, f) => { if (!m[f.posisi]) m[f.posisi] = f.pratinjau || PLACEHOLDER; return m; }, {})
+    ? serverFoto.reduce<Record<string, string>>((m, f) => {
+        if (!m[f.posisi]) {
+          const directUrl = f.link?.includes('/file/d/')
+            ? `https://lh3.googleusercontent.com/d/${f.link.split('/d/')[1]?.split('/')[0]}`
+            : f.link;
+          m[f.posisi] = f.pratinjau || directUrl || PLACEHOLDER;
+        }
+        return m;
+      }, {})
     : fotoMapDemo;
   const infoServer = (pos: string) => serverFoto.find(f => f.posisi === pos);
 
@@ -167,9 +175,9 @@ export function FotoUnitModal({ isOpen, onClose, unit, onSimpanFoto, server }: P
         <div class="sheet-body" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
           {/* Helper notice */}
           <div class="banner banner-info" style={{ marginBottom: '16px', fontSize: 'var(--text-xs)' }}>
-            Foto unit bekas wajib: <strong>Depan, Belakang, dan Layar Menyala</strong>. Foto otomatis dikompres di peramban ke &lt;400 KB sebelum diunggah ke Google Drive.
+            Foto unit bekas wajib: <strong>Depan, Belakang, dan Layar Menyala</strong>. Foto otomatis dioptimalkan di peramban (maks 2 MB) sebelum disimpan ke Google Drive.
           </div>
-          {server && <input ref={inputRef} type="file" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={onFilePilih} />}
+          {server && <input ref={inputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={onFilePilih} />}
           {memuat && <div class="banner banner-info" role="status" style={{ marginBottom: '12px', fontSize: 'var(--text-xs)' }}>Memuat foto dari Google Drive…</div>}
           {pesan && <div class="banner banner-warning" role="alert" style={{ marginBottom: '12px', fontSize: 'var(--text-xs)' }}>{pesan}</div>}
 

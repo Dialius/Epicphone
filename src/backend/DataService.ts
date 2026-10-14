@@ -88,6 +88,18 @@ export function getSemuaData(): SemuaData {
   const klaimRows = Db.getAll(SHEET.GARANSI_RETUR);
   const biayaRows = Db.getAll(SHEET.BIAYA_OPERASIONAL);
   const logRows = Db.getAll(SHEET.LOG_AKTIVITAS);
+  const fotoRows = Db.getAll(SHEET.BERKAS_FOTO) as Array<Record<string, unknown>>;
+
+  const fotoByRef: Record<string, string[]> = {};
+  fotoRows.forEach(f => {
+    if (f.Status === 'Aktif') {
+      const idRef = teks(f.ID_Referensi);
+      if (!fotoByRef[idRef]) fotoByRef[idRef] = [];
+      const fileId = teks(f.ID_File_Drive);
+      const url = fileId ? `https://lh3.googleusercontent.com/d/${fileId}` : teks(f.Link);
+      if (url) fotoByRef[idRef].push(url);
+    }
+  });
 
   const supplierByBeli: Record<string, string> = {};
   pembelian.forEach(p => { supplierByBeli[teks(p.ID_Pembelian)] = teks(p.Nama_Supplier); });
@@ -106,8 +118,9 @@ export function getSemuaData(): SemuaData {
     .map(u => {
       const akhir = u.Status === STATUS_UNIT.TERJUAL && isoValid(teks(u.Tgl_Keluar)) ? teks(u.Tgl_Keluar) : hariIni;
       const nama = teks(u.Nama_Barang);
+      const idUnit = teks(u.ID_Unit);
       return {
-        id: teks(u.ID_Unit),
+        id: idUnit,
         nama,
         merek: nama.split(' ')[0] || 'HP',
         model: nama,
@@ -128,7 +141,7 @@ export function getSemuaData(): SemuaData {
         tglMasuk: tglId(u.Tgl_Masuk),
         catatan: opsional(u.Catatan),
         sumberSupplier: u.Sumber === 'Pembelian' ? opsional(supplierByBeli[teks(u.ID_Sumber)]) : undefined,
-        foto: [] as string[],
+        foto: fotoByRef[idUnit] || [],
         estimasiServis: angka(u.Estimasi_Servis) || undefined,
         notaJualId: opsional(u.ID_Penjualan),
       };
@@ -344,7 +357,7 @@ export function getSemuaData(): SemuaData {
         estimasiBiaya: angka(sv.Estimasi_Biaya), biayaPart: angka(sv.Biaya_Part), biayaJasa: angka(sv.Biaya_Jasa_Teknisi),
         tarifPelanggan: angka(sv.Tarif_Pelanggan), status: st,
         tahap: st === 'Antri' ? 'sebelum' : st === 'Dikerjakan' ? 'proses' : 'sesudah',
-        unitHpId: opsional(sv.ID_Unit), catatan: opsional(sv.Tindakan), foto: [] as string[],
+        unitHpId: opsional(sv.ID_Unit), catatan: opsional(sv.Tindakan), foto: fotoByRef[teks(sv.ID_Servis)] || [],
       };
     });
   const klaim = klaimRows.map(k => {

@@ -1,6 +1,6 @@
 // Kit.tsx — komponen kecil bersama: EmptyState, FotoUnit (dengan gambar cadangan), PillStatus, Skeleton, Banner.
 import { ComponentChildren } from 'preact';
-import { useState } from 'preact/hooks';
+import { useState, useEffect } from 'preact/hooks';
 import { IconBox, IconImage } from '../Icons';
 
 export function EmptyState({ icon, judul, desk, aksi }: { icon?: ComponentChildren; judul: string; desk?: string; aksi?: ComponentChildren }) {
@@ -14,13 +14,31 @@ export function EmptyState({ icon, judul, desk, aksi }: { icon?: ComponentChildr
   );
 }
 
-/** Foto unit: bila tidak ada atau gagal dimuat, tampil ikon cadangan (bukan teks alt yang menumpuk). */
+/** Foto unit: bila tidak ada atau gagal dimuat, tampil ikon cadangan dengan fallback otomatis CDN. */
 export function FotoUnit({ src, alt, size = 48, radius = 8 }: { src?: string; alt: string; size?: number; radius?: number }) {
   const [gagal, setGagal] = useState(false);
-  const ada = !!src && !gagal;
+  const [urlAktif, setUrlAktif] = useState(src);
+
+  useEffect(() => {
+    setUrlAktif(src);
+    setGagal(false);
+  }, [src]);
+
+  const tanganiGalat = () => {
+    if (urlAktif && urlAktif.includes('lh3.googleusercontent.com/d/')) {
+      const id = urlAktif.split('/d/')[1]?.split('?')[0];
+      if (id) {
+        setUrlAktif(`https://drive.google.com/thumbnail?id=${id}&sz=w800`);
+        return;
+      }
+    }
+    setGagal(true);
+  };
+
+  const ada = !!urlAktif && !gagal;
   return (
     <div class="foto-box" style={{ width: size, height: size, borderRadius: radius, flexShrink: 0, border: '1px solid var(--border)' }} role="img" aria-label={alt}>
-      {ada ? <img src={src} alt="" loading="lazy" onError={() => setGagal(true)} /> : <IconImage size={Math.round(size * 0.42)} />}
+      {ada ? <img src={urlAktif} alt="" loading="lazy" referrerPolicy="no-referrer" onError={tanganiGalat} /> : <IconImage size={Math.round(size * 0.42)} />}
     </div>
   );
 }
@@ -53,8 +71,26 @@ export function Banner({ tipe = 'info', icon, children, aksi, class: cls = '' }:
 /** <img> dengan cadangan: bila gagal dimuat tampil placeholder, bukan kotak hitam dengan teks alt. */
 export function ImgAman({ src, alt, style, class: cls }: { src?: string; alt: string; style?: Record<string, string | number>; class?: string }) {
   const [gagal, setGagal] = useState(false);
-  if (!src || gagal) {
+  const [urlAktif, setUrlAktif] = useState(src);
+
+  useEffect(() => {
+    setUrlAktif(src);
+    setGagal(false);
+  }, [src]);
+
+  const tanganiGalat = () => {
+    if (urlAktif && urlAktif.includes('lh3.googleusercontent.com/d/')) {
+      const id = urlAktif.split('/d/')[1]?.split('?')[0];
+      if (id) {
+        setUrlAktif(`https://drive.google.com/thumbnail?id=${id}&sz=w800`);
+        return;
+      }
+    }
+    setGagal(true);
+  };
+
+  if (!urlAktif || gagal) {
     return <div class="img-fallback" role="img" aria-label={alt}><IconImage size={40} /><span>Foto tidak tersedia</span></div>;
   }
-  return <img src={src} alt={alt} style={style} class={cls} onError={() => setGagal(true)} />;
+  return <img src={urlAktif} alt={alt} style={style} class={cls} referrerPolicy="no-referrer" onError={tanganiGalat} />;
 }

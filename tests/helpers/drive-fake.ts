@@ -20,7 +20,7 @@ export class BerkasPalsu {
   isTrashed() { return this.dihapus; }
   setTrashed(v: boolean) { this.dihapus = v; if (v && this.induk) this.induk.berkas = this.induk.berkas.filter(b => b !== this); return this; }
   moveTo(f: FolderPalsu) { if (this.induk) this.induk.berkas = this.induk.berkas.filter(b => b !== this); this.induk = f; f.berkas.push(this); return this; }
-  setSharing(a: string) { this.sharing = a; return this; }
+  setSharing(a: string, p?: string) { this.sharing = a; return this; }
   addViewer(e: string) { this.penonton.push(e); return this; }
   makeCopy(nama: string, f: FolderPalsu) { const b = new BerkasPalsu('f' + (++dunia.n), nama, this.blob, f, dunia.sekarang(), this.id); f.berkas.push(b); dunia.berkasById.set(b.id, b); return b; }
 }

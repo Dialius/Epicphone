@@ -9,12 +9,12 @@ export interface FotoKompresi {
 }
 
 /**
- * Kompres file gambar dari kamera / galeri:
- * - Sisi terpanjang maksimal 1600px
- * - Ekspor JPEG kualitas ~0.8
- * - Target ukuran di bawah 400 KB
+ * Kompres file gambar dari kamera atau galeri foto:
+ * - Ukuran maksimal 2 MB (2000 KB) untuk Google Drive
+ * - Mempertahankan ketajaman visual tinggi dengan skala proporsional
+ * - Otomatis dioptimalkan agar tidak pernah melebihi batas 2 MB
  */
-export function kompresFoto(file: File, maksDimensi = 1600, kualitas = 0.8): Promise<FotoKompresi> {
+export function kompresFoto(file: File, maksDimensi = 1920, targetMaksKB = 2000): Promise<FotoKompresi> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
 
@@ -24,7 +24,7 @@ export function kompresFoto(file: File, maksDimensi = 1600, kualitas = 0.8): Pro
         let width = img.width;
         let height = img.height;
 
-        // Skala dimensi jika melebihi batas maks
+        // Skala dimensi awal jika melebihi batas maks
         if (width > height) {
           if (width > maksDimensi) {
             height = Math.round((height * maksDimensi) / width);
@@ -50,10 +50,27 @@ export function kompresFoto(file: File, maksDimensi = 1600, kualitas = 0.8): Pro
         // Gambar ke canvas
         ctx.drawImage(img, 0, 0, width, height);
 
-        // Ekspor JPEG kualitas 0.8
-        const dataUri = canvas.toDataURL('image/jpeg', kualitas);
-        const base64Data = dataUri.split(',')[1] || '';
-        const ukuranKB = Math.round((base64Data.length * 3) / 4 / 1024);
+        let kualitas = 0.85;
+        let dataUri = canvas.toDataURL('image/jpeg', kualitas);
+        let base64Data = dataUri.split(',')[1] || '';
+        let ukuranKB = Math.round((base64Data.length * 3) / 4 / 1024);
+
+        // Jika ukuran melebihi 2 MB, optimalkan kualitas dan dimensi secara bertahap sampai <= targetMaksKB
+        let iterasi = 0;
+        while (ukuranKB > targetMaksKB && iterasi < 5) {
+          iterasi++;
+          kualitas = Math.max(0.5, kualitas - 0.12);
+          if (iterasi >= 2) {
+            width = Math.round(width * 0.85);
+            height = Math.round(height * 0.85);
+            canvas.width = width;
+            canvas.height = height;
+            ctx.drawImage(img, 0, 0, width, height);
+          }
+          dataUri = canvas.toDataURL('image/jpeg', kualitas);
+          base64Data = dataUri.split(',')[1] || '';
+          ukuranKB = Math.round((base64Data.length * 3) / 4 / 1024);
+        }
 
         resolve({
           base64Data,
