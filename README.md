@@ -98,4 +98,4 @@ Galeri komponen (mode dev): `http://localhost:5173/#/_galeri`
 
 ## Lisensi
 
-Proyek ini dilisensikan di bawah [MIT License](LICENSE) © 2026 Epic Phone Purwokerto.
+Proyek ini dilisensikan di bawah [MIT License](LICENSE) © 2026 Dialius & Epic Phone Purwokerto.

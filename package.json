@@ -2,6 +2,7 @@
   "name": "epicphone-sistem",
   "version": "1.0.0",
   "private": true,
+  "author": "Dialius & Epic Phone Purwokerto",
   "license": "MIT",
   "type": "module",
   "scripts": {
