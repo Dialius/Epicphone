@@ -1,6 +1,6 @@
 // api.ts — Pembungkus komunikasi frontend ke backend Apps Script + Mock Dev Mode
 
-import { MOCK_STOK_HP, UnitHP, Aksesoris, TransaksiItem, Tagihan, KontakItem, ProdukKatalog, ServisItem, KlaimItem, BiayaOperasional } from '../mock/data-contoh';
+import type { UnitHP, Aksesoris, TransaksiItem, Tagihan, KontakItem, ProdukKatalog, ServisItem, KlaimItem, BiayaOperasional } from '../mock/data-contoh';
 
 export interface ApiResponse<T = unknown> {
   ok: boolean;
@@ -87,7 +87,7 @@ function getLocalStok(): UnitHP[] {
   } catch {
     // fallback
   }
-  return MOCK_STOK_HP;
+  return [];
 }
 
 function saveLocalStok(list: UnitHP[]) {

@@ -2,7 +2,7 @@
 // ringkasan masuk/keluar, rincian transaksi, ekspor CSV. Transaksi tidak dihapus, hanya dibatalkan.
 
 import { useState, useMemo } from 'preact/hooks';
-import { TransaksiItem } from '../mock/data-contoh';
+import type { TransaksiItem } from '../mock/data-contoh';
 import { ModalShell } from '../components/ModalShell';
 import { EmptyState, PillStatus } from '../components/ui/Kit';
 import { IconSearch, IconReceipt, IconClose, IconDownload, IconBox, IconWrench, IconBanknote, IconChevronRight } from '../components/Icons';

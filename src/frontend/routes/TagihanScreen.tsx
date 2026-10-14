@@ -1,7 +1,7 @@
 import { linkWa, normalisasiWa, rupiahRingkas } from '../lib/format';
 
 import { useState } from 'preact/hooks';
-import { Tagihan, MOCK_TAGIHAN } from '../mock/data-contoh';
+import type { Tagihan } from '../mock/data-contoh';
 import { IconReceipt } from '../components/Icons';
 
 interface Props {
@@ -10,7 +10,7 @@ interface Props {
   filterAwal?: string;
 }
 
-export function TagihanScreen({ tagihanList = MOCK_TAGIHAN, onBukaDetailTagihan, filterAwal }: Props) {
+export function TagihanScreen({ tagihanList = [], onBukaDetailTagihan, filterAwal }: Props) {
   const [tabJenis, setTabJenis] = useState<'Piutang pelanggan' | 'Hutang supplier'>('Piutang pelanggan');
   const [filterChip, setFilterChip] = useState<'Semua' | 'Telat' | 'Minggu ini' | 'Lunas'>(filterAwal === 'telat' ? 'Telat' : 'Semua');
 

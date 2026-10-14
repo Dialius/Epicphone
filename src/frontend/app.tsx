@@ -23,7 +23,7 @@ import { BarangMasukModal, DataBarangMasuk } from './components/BarangMasukModal
 import { POSISI_FOTO } from './components/FormUnitHP';
 import { JualModal, HasilJual } from './components/JualModal';
 import { TransaksiModal } from './components/TransaksiModal';
-import { NotaModal, DataNota, PdfNota, TokoNota, TOKO_DEMO } from './components/NotaModal';
+import { NotaModal, DataNota, PdfNota, TokoNota } from './components/NotaModal';
 import type { ServerPengaturan, LogItemServer, HasilKonsistensiUI, StatusSistemUI, InfoBackupUI } from './routes/PengaturanScreen';
 import { AksesorisMasukModal, DataAksesorisMasuk } from './components/AksesorisMasukModal';
 import type { HasilCariGaransi, KlaimEkstra } from './routes/GaransiScreen';
@@ -37,7 +37,7 @@ import { BatalkanTransaksiModal } from './components/BatalkanTransaksiModal';
 import { Toaster } from './components/Toaster';
 import { Galeri } from './components/Galeri';
 
-import { UnitHP, Aksesoris, Tagihan, TransaksiItem, ServisItem, KlaimItem, BiayaOperasional, KontakItem, ProdukKatalog, MOCK_STOK_HP, MOCK_AKSESORIS, MOCK_TAGIHAN, MOCK_TRANSAKSI_TERAKHIR, MOCK_SERVIS, MOCK_KLAIM, MOCK_BIAYA, MOCK_KONTAK, MOCK_KATALOG } from './mock/data-contoh';
+import type { UnitHP, Aksesoris, Tagihan, TransaksiItem, ServisItem, KlaimItem, BiayaOperasional, KontakItem, ProdukKatalog } from './mock/data-contoh';
 import { apiCall, buatIdemKey, sesuai, DataServer, HasilServerJual, FotoServer } from './lib/api';
 import type { PembelianInput } from '../backend/PembelianService';
 import type { ServisInput } from '../backend/ServisService';
@@ -47,7 +47,7 @@ import type { KontakInput, ProdukInput } from '../backend/MasterService';
 
 import { toast, getToastLog } from './lib/toast';
 import { closeTopOverlay, overlayCount } from './lib/overlay';
-import { usePersist, bacaLocal, tulisLocal } from './lib/usePersist';
+import { usePersist } from './lib/usePersist';
 import { tglWib, jamWib, nomorDokumen, urutanBerikut, rupiah, parseTgl } from './lib/format';
 import { platformDariMerek } from './lib/produk';
 import { hitungDashboard, buatPeringatan } from './lib/derive';
@@ -65,8 +65,6 @@ const JUDUL: Record<NavTab, string> = {
 };
 const TAB_DI_MENU: NavTab[] = ['servis', 'garansi', 'tagihan', 'biaya', 'laporan', 'kontak', 'katalog', 'pengaturan'];
 
-/** Ubah versi ini bila bentuk data contoh berubah, agar data lama di perangkat tidak menimpa yang baru. */
-const DATA_VERSI = 'v2';
 
 function bacaHash(): { tab: NavTab; sub?: string } {
   const m = location.hash.match(/^#\/(_?[a-z]+)(?:\/([\w-]+))?/);
@@ -89,23 +87,23 @@ export function App() {
   const isDark = tema === 'gelap' || (tema === 'sistem' && sistemGelap);
   const isDemo = false;
 
-  // ---- data (tersimpan; versi data dicek) ----
+  // Bersihkan data contoh lokal lama bila ada, pastikan selalu bersumber dari DB
   useMemo(() => {
-    if (bacaLocal<string>('data-versi', '') !== DATA_VERSI) {
-      ['stok', 'aksesoris', 'transaksi', 'tagihan', 'servis', 'klaim', 'biaya', 'kontak', 'katalog'].forEach(k => localStorage.removeItem('epicphone:data-' + k));
-      localStorage.removeItem('epicphone_stok_dev');
-      tulisLocal('data-versi', DATA_VERSI);
-    }
+    ['stok', 'aksesoris', 'transaksi', 'tagihan', 'servis', 'klaim', 'biaya', 'kontak', 'katalog', 'stok_dev'].forEach(k => {
+      localStorage.removeItem('epicphone:data-' + k);
+      localStorage.removeItem('epicphone_' + k);
+    });
   }, []);
-  const [stokList, setStokList] = usePersist<UnitHP[]>('data-stok', isDemo ? MOCK_STOK_HP : [], { simpan: isDemo });
-  const [aksesorisList, setAksesorisList] = usePersist<Aksesoris[]>('data-aksesoris', isDemo ? MOCK_AKSESORIS : [], { simpan: isDemo });
-  const [transaksiList, setTransaksiList] = usePersist<TransaksiItem[]>('data-transaksi', isDemo ? MOCK_TRANSAKSI_TERAKHIR : [], { simpan: isDemo });
-  const [tagihanList, setTagihanList] = usePersist<Tagihan[]>('data-tagihan', isDemo ? MOCK_TAGIHAN : [], { simpan: isDemo });
-  const [servisList, setServisList] = usePersist<ServisItem[]>('data-servis', isDemo ? MOCK_SERVIS : [], { simpan: isDemo });
-  const [klaimList, setKlaimList] = usePersist<KlaimItem[]>('data-klaim', isDemo ? MOCK_KLAIM : [], { simpan: isDemo });
-  const [biayaList, setBiayaList] = usePersist<BiayaOperasional[]>('data-biaya', isDemo ? MOCK_BIAYA : [], { simpan: isDemo });
-  const [kontakList, setKontakList] = usePersist<KontakItem[]>('data-kontak', isDemo ? MOCK_KONTAK : [], { simpan: isDemo });
-  const [katalogList, setKatalogList] = usePersist<ProdukKatalog[]>('data-katalog', isDemo ? MOCK_KATALOG : [], { simpan: isDemo });
+
+  const [stokList, setStokList] = useState<UnitHP[]>([]);
+  const [aksesorisList, setAksesorisList] = useState<Aksesoris[]>([]);
+  const [transaksiList, setTransaksiList] = useState<TransaksiItem[]>([]);
+  const [tagihanList, setTagihanList] = useState<Tagihan[]>([]);
+  const [servisList, setServisList] = useState<ServisItem[]>([]);
+  const [klaimList, setKlaimList] = useState<KlaimItem[]>([]);
+  const [biayaList, setBiayaList] = useState<BiayaOperasional[]>([]);
+  const [kontakList, setKontakList] = useState<KontakItem[]>([]);
+  const [katalogList, setKatalogList] = useState<ProdukKatalog[]>([]);
 
   // ---- overlay ----
   const [isTransaksiOpen, setIsTransaksiOpen] = useState(false);
@@ -785,10 +783,14 @@ export function App() {
     muatBackup: async () => { const r = await apiCall<InfoBackupUI[]>('getDaftarBackup'); return r.ok && r.data ? r.data : []; },
   };
 
-  /** Identitas toko pada nota: dari Pengaturan (mode nyata) atau contoh (demo) */
-  const tokoNota: TokoNota = isDemo || !pengaturanServer ? TOKO_DEMO : {
-    nama: pengaturanServer.NAMA_TOKO || 'Epic Phone', tagline: pengaturanServer.TAGLINE || '', alamat: pengaturanServer.ALAMAT || '',
-    wa: pengaturanServer.NO_WA || '', instagram: pengaturanServer.INSTAGRAM || '', syarat: pengaturanServer.SYARAT_GARANSI || TOKO_DEMO.syarat,
+  /** Identitas toko pada nota: murni dari sheet Pengaturan database */
+  const tokoNota: TokoNota = {
+    nama: pengaturanServer?.NAMA_TOKO || 'Epic Phone Purwokerto',
+    tagline: pengaturanServer?.TAGLINE || '',
+    alamat: pengaturanServer?.ALAMAT || '',
+    wa: pengaturanServer?.NO_WA || '',
+    instagram: pengaturanServer?.INSTAGRAM || '',
+    syarat: pengaturanServer?.SYARAT_GARANSI || 'Garansi berlaku sesuai ketentuan nota.',
   };
 
   const fotoServer = isDemo ? undefined : {

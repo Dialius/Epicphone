@@ -2,8 +2,8 @@
 // Profil Toko, Garansi & Nota, Paket Bonus, Ambang, Tampilan, Backup & Pemulihan (PULIHKAN keyword), Konsistensi, Log, & Tentang
 
 import { useEffect, useState } from 'preact/hooks';
-import { MOCK_TOKO, MOCK_LOG, Aksesoris } from '../mock/data-contoh';
-import { IconShield, IconDatabase, IconCheck, IconAlertTriangle, IconPlus, IconClose } from '../components/Icons';
+import type { Aksesoris } from '../mock/data-contoh';
+import { IconShield, IconDatabase, IconAlertTriangle, IconPlus, IconClose } from '../components/Icons';
 import { ModalShell } from '../components/ModalShell';
 import { Field } from '../components/ui/Form';
 
@@ -140,11 +140,11 @@ export function PengaturanScreen({
 
   // S40 Profil State
   const P = pengaturan ?? {};
-  const [namaToko, setNamaToko] = useState(P.NAMA_TOKO ?? (server ? '' : MOCK_TOKO.nama));
-  const [tagline, setTagline] = useState(P.TAGLINE ?? (server ? '' : MOCK_TOKO.tagline));
-  const [alamat, setAlamat] = useState(P.ALAMAT ?? (server ? '' : MOCK_TOKO.alamat));
-  const [noWa, setNoWa] = useState(P.NO_WA ?? (server ? '' : MOCK_TOKO.noWa));
-  const [ig, setIg] = useState(P.INSTAGRAM ?? (server ? '' : MOCK_TOKO.instagram));
+  const [namaToko, setNamaToko] = useState(P.NAMA_TOKO ?? '');
+  const [tagline, setTagline] = useState(P.TAGLINE ?? '');
+  const [alamat, setAlamat] = useState(P.ALAMAT ?? '');
+  const [noWa, setNoWa] = useState(P.NO_WA ?? '');
+  const [ig, setIg] = useState(P.INSTAGRAM ?? '');
   const [menyimpan, setMenyimpan] = useState(false);
 
   // S41 Garansi & Nota State
@@ -822,10 +822,7 @@ export function PengaturanScreen({
                     {backupDaftar.length === 0 && <span class="text-secondary">Belum ada salinan cadangan.</span>}
                   </>
                 ) : (
-                  <>
-                    <div class="p-2 bg-surface-2 rounded flex justify-between"><span>EPICPHONE_BACKUP_HARIAN_2026-10-05_0100</span><span class="badge">Contoh (demo)</span></div>
-                    <div class="p-2 bg-surface-2 rounded flex justify-between"><span>EPICPHONE_BACKUP_BULANAN_2026-09</span><span class="badge">Contoh (demo)</span></div>
-                  </>
+                  <span class="text-xs text-secondary">Belum ada salinan cadangan.</span>
                 )}
               </div>
             </div>
@@ -863,11 +860,8 @@ export function PengaturanScreen({
               </div>
             )}
             {cekStatus === 'selesai' && !server && (
-              <div class="flex flex-col gap-2 mt-1">
-                <div class="card p-3 flex justify-between items-center bg-ready">
-                  <span class="text-xs text-brand-green-700">• Contoh (mode demo): semua pemeriksaan <strong>KONSISTEN</strong></span>
-                  <IconCheck size={16} class="text-brand-green" />
-                </div>
+              <div class="card p-3 bg-surface-2 mt-1">
+                <span class="text-xs text-secondary">Pemeriksaan konsistensi membutuhkan koneksi server aktif.</span>
               </div>
             )}
           </div>
@@ -879,9 +873,9 @@ export function PengaturanScreen({
             <h2 class="panel-title">Log aktivitas dan audit trail</h2>
             <p class="panel-desc">Riwayat perubahan data terbaru, paling baru di atas.</p>
             <div class="card-list">
-              {server && logServer === null && <span class="text-xs text-secondary">Memuat log…</span>}
-              {server && logServer && logServer.length === 0 && <span class="text-xs text-secondary">Belum ada aktivitas.</span>}
-              {(server ? (logServer ?? []).map((l, i) => ({ id: `L${i}`, tanggal: l.tanggal, jam: l.jam, aksi: l.aksi, sheet: l.sheet, idData: l.id, ringkasan: l.ringkasan })) : MOCK_LOG).map(log => (
+              {logServer === null && <span class="text-xs text-secondary">Memuat log…</span>}
+              {logServer && logServer.length === 0 && <span class="text-xs text-secondary">Belum ada aktivitas tercatat di database.</span>}
+              {(logServer ?? []).map((l, i) => ({ id: `L${i}`, tanggal: l.tanggal, jam: l.jam, aksi: l.aksi, sheet: l.sheet, idData: l.id, ringkasan: l.ringkasan })).map(log => (
                 <div key={log.id} class="list-item">
                   <div class="list-item-head">
                     <span class="badge badge-neutral">{log.aksi}</span>
@@ -924,7 +918,7 @@ export function PengaturanScreen({
               ) : <span class="text-xs text-secondary">Memeriksa sistem…</span>
             ) : (
               <div class="grid grid-cols-auto-fit gap-2">
-                <div class="card p-3 bg-surface-2"><span class="text-secondary text-xs">Status sistem</span><div class="text-xs mt-1">Contoh pada mode demo. Tersambung ke server, halaman ini menampilkan trigger dan Drive yang sebenarnya.</div></div>
+                <div class="card p-3 bg-surface-2"><span class="text-secondary text-xs">Status sistem</span><div class="text-xs mt-1">Status trigger, Drive, dan baris data terhubung langsung ke Google Sheets.</div></div>
               </div>
             )}
           </div>

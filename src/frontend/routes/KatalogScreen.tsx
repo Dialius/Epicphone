@@ -4,7 +4,7 @@
 // harga berformat Rp, cegah model ganda, kartu produk tersusun rapi dalam grid.
 
 import { useMemo, useState } from 'preact/hooks';
-import { ProdukKatalog, MOCK_KATALOG } from '../mock/data-contoh';
+import type { ProdukKatalog } from '../mock/data-contoh';
 import { ModalShell } from '../components/ModalShell';
 import { Field, MoneyInput, SegmentedField, useFieldId, duit } from '../components/ui/Form';
 import { EmptyState } from '../components/ui/Kit';
@@ -17,7 +17,7 @@ interface Props {
   onTambahKatalog?: (prod: ProdukKatalog) => void | boolean | Promise<boolean | void>;
 }
 
-export function KatalogScreen({ katalogList = MOCK_KATALOG, onTambahKatalog }: Props) {
+export function KatalogScreen({ katalogList = [], onTambahKatalog }: Props) {
   const id = useFieldId('kt');
   const daftar = katalogList; // dikendalikan app
   const [filterJenis, setFilterJenis] = useState<'Semua' | 'HP' | 'Aksesoris'>('Semua');

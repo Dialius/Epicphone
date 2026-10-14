@@ -1,6 +1,6 @@
 import { useState } from 'preact/hooks';
 import { Dashboard } from '../lib/derive';
-import { PeringatanItem, TransaksiItem } from '../mock/data-contoh';
+import type { PeringatanItem, TransaksiItem } from '../mock/data-contoh';
 import { DrafJual } from '../lib/draf';
 import { rupiah, rupiahRingkas, MASK, tglPanjang, linkWa, parseTgl } from '../lib/format';
 import { BarChart, Sparkline } from '../components/Charts';

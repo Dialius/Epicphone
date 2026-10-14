@@ -5,7 +5,7 @@
 
 import { useEffect, useMemo, useState } from 'preact/hooks';
 import { tglWib, nomorDokumen, urutanBerikut, rupiah, normalisasiWa } from '../lib/format';
-import { ServisItem, UnitHP } from '../mock/data-contoh';
+import type { ServisItem, UnitHP } from '../mock/data-contoh';
 import { ModalShell } from '../components/ModalShell';
 import { Field, MoneyInput, SegmentedField, useFieldId, duit } from '../components/ui/Form';
 import { Banner, EmptyState } from '../components/ui/Kit';

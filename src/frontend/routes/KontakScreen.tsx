@@ -4,7 +4,7 @@ import { linkWa, normalisasiWa } from '../lib/format';
 
 import { useState } from 'preact/hooks';
 import { toast } from '../lib/toast';
-import { KontakItem, MOCK_KONTAK } from '../mock/data-contoh';
+import type { KontakItem } from '../mock/data-contoh';
 import { IconSearch, IconPlus, IconClose, IconCopy, IconCheck, IconReceipt } from '../components/Icons';
 
 interface Props {
@@ -13,7 +13,7 @@ interface Props {
   onBukaRiwayatTransaksi?: (nama: string) => void;
 }
 
-export function KontakScreen({ kontakList = MOCK_KONTAK, onTambahKontak, onBukaRiwayatTransaksi }: Props) {
+export function KontakScreen({ kontakList = [], onTambahKontak, onBukaRiwayatTransaksi }: Props) {
   const daftar = kontakList; // dikendalikan app: data tidak hilang saat pindah tab
   const [filterTipe, setFilterTipe] = useState<'Semua' | 'Pelanggan' | 'Supplier'>('Semua');
   const [query, setQuery] = useState('');

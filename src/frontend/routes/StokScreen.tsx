@@ -3,7 +3,7 @@
 // (tanpa auto-pilih unit), kartu di HP, gambar cadangan, empty state untuk "kosong" dan "tidak ada hasil".
 
 import { useState, useMemo, useEffect } from 'preact/hooks';
-import { UnitHP, Aksesoris } from '../mock/data-contoh';
+import type { UnitHP, Aksesoris } from '../mock/data-contoh';
 import {
   IconSearch, IconClose, IconWrench, IconReceipt, IconShield, IconPlus, IconFilter, IconSort, IconCopy, IconCheck,
   IconChevronRight, IconBox, IconLayoutGrid, IconRows,

@@ -2,7 +2,7 @@
 // Warranty validation by IMEI/nota, status banners, impact summary card, & claim tracker
 
 import { useState } from 'preact/hooks';
-import { KlaimItem, MOCK_KLAIM, UnitHP, TransaksiItem } from '../mock/data-contoh';
+import type { KlaimItem, UnitHP, TransaksiItem } from '../mock/data-contoh';
 import { useEffect } from 'preact/hooks';
 import { tglWib, parseTgl, selisihHari, urutanBerikut, nomorDokumen } from '../lib/format';
 import { tambahHari } from '../lib/nota';
@@ -44,7 +44,7 @@ interface Props {
 }
 
 export function GaransiScreen({
-  klaimList = MOCK_KLAIM,
+  klaimList = [],
   stokList = [],
   transaksiList = [],
   imeiAwal,

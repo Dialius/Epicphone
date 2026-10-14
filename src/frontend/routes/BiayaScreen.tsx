@@ -4,7 +4,7 @@
 
 import { useMemo, useState } from 'preact/hooks';
 import { tglWib, parseTgl, rupiah } from '../lib/format';
-import { BiayaOperasional, MOCK_BIAYA } from '../mock/data-contoh';
+import type { BiayaOperasional } from '../mock/data-contoh';
 import { ModalShell } from '../components/ModalShell';
 import { Field, MoneyInput, useFieldId, duit } from '../components/ui/Form';
 import { EmptyState } from '../components/ui/Kit';
@@ -27,7 +27,7 @@ const dariIso = (iso: string) => { const [y, m, d] = iso.split('-'); return `${d
 /** kunci bulan dari teks tanggal: "2026-10" */
 const kunciBulan = (tgl: string) => keIso(tgl).slice(0, 7);
 
-export function BiayaScreen({ biayaList = MOCK_BIAYA, onTambahBiaya }: Props) {
+export function BiayaScreen({ biayaList = [], onTambahBiaya }: Props) {
   const id = useFieldId('by');
   const daftar = biayaList; // dikendalikan app
   const [filterKategori, setFilterKategori] = useState<string>('Semua');

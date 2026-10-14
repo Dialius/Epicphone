@@ -9,7 +9,7 @@ import { PratinjauDokumen } from '../components/PratinjauDokumen';
 import { Banner } from '../components/ui/Kit';
 import { InfoTip } from '../components/ui/InfoTip';
 import { TokoNota, TOKO_DEMO } from '../components/NotaModal';
-import { LaporanLayar, PERIODE_API, laporanContoh } from '../lib/laporan';
+import { LaporanLayar, PERIODE_API } from '../lib/laporan';
 import { laporanDokumen } from '../lib/dokumen';
 import { cetakHtml, bukaDiTabBaru } from '../lib/cetak';
 import { tglWib, jamWib, rupiah, MASK } from '../lib/format';
@@ -21,7 +21,6 @@ interface Props {
   onShowToast: (msg: string, type?: 'success' | 'error') => void;
   isPrivacyMode: boolean;
   toko?: TokoNota;
-  /** Mode nyata: angka dihitung server. Tanpa ini layar menampilkan contoh (demo). */
   muat?: (periodeApi: string) => Promise<LaporanLayar | null>;
   onKunciBulan?: (bulan: string) => Promise<boolean>;
   onUnduhPdf?: (bulan: string) => Promise<boolean>;
@@ -45,16 +44,16 @@ export function LaporanScreen({ onBukaRiwayatFilter, onShowToast, isPrivacyMode,
   const [isKunciBulanOpen, setIsKunciBulanOpen] = useState(false);
   const [bulanTerkunci, setBulanTerkunci] = useState(false);
   const [pahamKunci, setPahamKunci] = useState(false);
-  const demo = !muat;
-  const [data, setData] = useState<LaporanLayar | null>(() => (demo ? laporanContoh() : null));
-  const [memuat, setMemuat] = useState(!demo);
+  const [data, setData] = useState<LaporanLayar | null>(null);
+  const [memuat, setMemuat] = useState(true);
   const [galat, setGalat] = useState('');
   const [versi, setVersi] = useState(0);
   const [mengunduh, setMengunduh] = useState(false);
 
   useEffect(() => {
     if (!muat) {
-      setData(laporanContoh(PERIODE_API[periode]));
+      setGalat('Layanan server laporan belum terhubung.');
+      setMemuat(false);
       return;
     }
     let batal = false;
@@ -62,7 +61,7 @@ export function LaporanScreen({ onBukaRiwayatFilter, onShowToast, isPrivacyMode,
     setGalat('');
     muat(PERIODE_API[periode]).then(d => {
       if (batal) return;
-      if (d) setData(d); else setGalat('Laporan belum bisa dimuat. Periksa koneksi lalu coba lagi.');
+      if (d) setData(d); else setGalat('Laporan belum bisa dimuat dari database. Periksa koneksi lalu coba lagi.');
       setMemuat(false);
     });
     return () => { batal = true; };
@@ -73,8 +72,8 @@ export function LaporanScreen({ onBukaRiwayatFilter, onShowToast, isPrivacyMode,
   const koma = (n: number) => String(n).replace('.', ',');
 
   const L = data;
-  const terkunci = demo ? bulanTerkunci : !!L?.isLocked;
-  const bisaKunci = demo ? !bulanTerkunci : !!L?.bisaDikunci;
+  const terkunci = !!L?.isLocked || bulanTerkunci;
+  const bisaKunci = !!L?.bisaDikunci && !bulanTerkunci;
 
   const dicetak = `${tglWib()}, ${jamWib()}`;
   const htmlLayar = useMemo(() => (L && activeTab === 'pdf' ? laporanDokumen(L, toko, { dicetak, samarkan: isPrivacyMode, layar: true }) : ''), [L, toko, isPrivacyMode, activeTab]);
@@ -119,10 +118,8 @@ export function LaporanScreen({ onBukaRiwayatFilter, onShowToast, isPrivacyMode,
   }
 
   const trenTampil = useMemo(() => {
-    const raw = L.tren12Bulan || [];
-    if (raw.some(m => m.laba && Math.abs(m.laba) > 0)) return raw;
-    return laporanContoh(PERIODE_API[periode]).tren12Bulan;
-  }, [L.tren12Bulan, periode]);
+    return L.tren12Bulan || [];
+  }, [L.tren12Bulan]);
 
   const maxLaba12Bulan = Math.max(0.1, ...trenTampil.map(m => Math.abs(m.laba)));
   const unitPerHari = L.jumlahHari > 0 ? Math.round((L.unitTerjual / L.jumlahHari) * 10) / 10 : 0;
@@ -148,11 +145,6 @@ export function LaporanScreen({ onBukaRiwayatFilter, onShowToast, isPrivacyMode,
 
   return (
     <div class="page">
-      {demo && (
-        <Banner tipe="info">
-          <strong>Angka di halaman ini contoh (mode demo).</strong> Pada aplikasi yang tersambung ke server, laporan dihitung dari transaksi.
-        </Banner>
-      )}
       {memuat && <Banner tipe="info">Memperbarui laporan…</Banner>}
 
       <div class="page-head split">
@@ -165,7 +157,7 @@ export function LaporanScreen({ onBukaRiwayatFilter, onShowToast, isPrivacyMode,
         <div class="page-actions">
           <button type="button" class="btn btn-secondary" onClick={() => setActiveTab('pdf')}><IconPrinter size={18} /><span class="btn-label">Cetak dan PDF</span></button>
           <button type="button" class={`btn ${bisaKunci ? 'btn-primary' : 'btn-secondary'}`} disabled={!bisaKunci}
-            title={!demo && !L.bisaDikunci && !L.isLocked ? 'Hanya bulan yang sudah lewat yang bisa dikunci' : undefined} onClick={() => setIsKunciBulanOpen(true)}>
+            title={!L.bisaDikunci && !L.isLocked ? 'Hanya bulan yang sudah lewat yang bisa dikunci' : undefined} onClick={() => setIsKunciBulanOpen(true)}>
             <IconLock size={18} /><span class="btn-label">{terkunci ? 'Bulan dikunci' : 'Kunci bulan'}</span>
           </button>
         </div>

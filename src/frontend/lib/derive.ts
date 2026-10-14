@@ -1,8 +1,8 @@
 // derive.ts — angka dashboard dan daftar peringatan diturunkan dari data nyata di state,
 // bukan dari angka contoh yang ditulis permanen.
 
-import {
-  UnitHP, Aksesoris, TransaksiItem, Tagihan, ServisItem, PeringatanItem, MOCK_TREN_30_HARI,
+import type {
+  UnitHP, Aksesoris, TransaksiItem, Tagihan, ServisItem, PeringatanItem,
 } from '../mock/data-contoh';
 import { tglWib, parseTgl, selisihHari, rupiah } from './format';
 
@@ -45,7 +45,7 @@ function metrik(list: TransaksiItem[]): Metrik {
 
 function geser(d: Date, hari: number): Date { return new Date(d.getTime() + hari * 86400000); }
 
-/** Tanggal acuan "hari ini": hari ini sungguhan bila ada transaksinya, selain itu transaksi terbaru (data contoh). */
+/** Tanggal acuan: tanggal hari ini dalam WIB, atau tanggal transaksi terbaru bila tersedia */
 export function tanggalAcuan(transaksi: TransaksiItem[]): Date {
   const sekarang = parseTgl(tglWib())!;
   const adaHariIni = transaksi.some(t => t.tanggal === tglWib());
@@ -57,66 +57,63 @@ export function tanggalAcuan(transaksi: TransaksiItem[]): Date {
 
 export function hitungDashboard(a: {
   transaksi: TransaksiItem[]; stok: UnitHP[]; tagihan: Tagihan[]; servis: ServisItem[];
-  /** false = data nyata: "hari ini" selalu hari ini (bukan hari terakhir ada transaksi) dan tidak memakai angka contoh */
   demo?: boolean;
-  /** Ambang dari Pengaturan (hari); bawaan 30 untuk umur stok */
   ambang?: { umurStokHari?: number; tempoHari?: number };
 }): Dashboard {
-  const demo = a.demo !== false;
-  const ref = demo ? tanggalAcuan(a.transaksi) : (parseTgl(tglWib()) as Date);
+  const ref = tanggalAcuan(a.transaksi);
   const refStr = tglWib(ref);
   const hariIni = metrik(a.transaksi.filter(t => t.tanggal === refStr));
   const kmrStr = tglWib(geser(ref, -1));
   const kmrList = a.transaksi.filter(t => t.tanggal === kmrStr);
-  let kemarin: Metrik | null = kmrList.length ? metrik(kmrList) : null;
-  if (!kemarin && demo) { // data contoh: pakai deret tren sebagai pembanding agar dashboard demo punya selisih
-    const m = MOCK_TREN_30_HARI.find(x => x.tgl === geser(ref, -1).getUTCDate());
-    if (m) kemarin = { omzet: m.omzet, laba: m.laba, kas: m.omzet, unit: m.unit };
-  }
+  const kemarin: Metrik | null = kmrList.length ? metrik(kmrList) : null;
 
   const tren: TitikTren[] = [];
   for (let i = 6; i >= 0; i--) {
     const d = geser(ref, -i);
     const s = tglWib(d);
     const dayList = a.transaksi.filter(t => t.tanggal === s);
-    const nyata = dayList.length > 0;
-    const mock = demo && !nyata ? MOCK_TREN_30_HARI.find(x => x.tgl === d.getUTCDate()) : undefined;
-    const m = nyata ? metrik(dayList) : null;
-    tren.push({ label: `${HARI_PENDEK[d.getUTCDay()]} ${d.getUTCDate()}`, omzet: m ? m.omzet : (mock?.omzet ?? 0), laba: m ? m.laba : (mock?.laba ?? 0), hariIni: i === 0, contoh: demo && !nyata });
+    const m = dayList.length > 0 ? metrik(dayList) : null;
+    tren.push({
+      label: `${HARI_PENDEK[d.getUTCDay()]} ${d.getUTCDate()}`,
+      omzet: m ? m.omzet : 0,
+      laba: m ? m.laba : 0,
+      hariIni: i === 0,
+      contoh: false,
+    });
   }
 
-  // Tren 30 hari terakhir
+  // Tren 30 hari terakhir dari data nyata
   const tren30Hari: TitikTren[] = [];
   for (let i = 29; i >= 0; i--) {
     const d = geser(ref, -i);
     const s = tglWib(d);
     const dayList = a.transaksi.filter(t => t.tanggal === s);
-    const nyata = dayList.length > 0;
-    const mock = demo && !nyata ? MOCK_TREN_30_HARI.find(x => x.tgl === d.getUTCDate()) : undefined;
-    const m = nyata ? metrik(dayList) : null;
-    tren30Hari.push({ label: `${d.getUTCDate()}`, omzet: m ? m.omzet : (mock?.omzet ?? 0), laba: m ? m.laba : (mock?.laba ?? 0), hariIni: i === 0, contoh: demo && !nyata });
+    const m = dayList.length > 0 ? metrik(dayList) : null;
+    tren30Hari.push({
+      label: `${d.getUTCDate()}`,
+      omzet: m ? m.omzet : 0,
+      laba: m ? m.laba : 0,
+      hariIni: i === 0,
+      contoh: false,
+    });
   }
 
-  // Tren Hari Ini per slot waktu
+  // Tren Hari Ini per slot waktu dari data nyata
   const slotWaktu = ['09:00', '11:00', '13:00', '15:00', '17:00', '19:00', '21:00'];
   const trxHariIni = a.transaksi.filter(t => t.tanggal === refStr && t.status !== 'Dibatalkan');
-  const mockHariIniOmzet = [450000, 850000, 350000, 1100000, 650000, 1250000, 400000];
-  const mockHariIniLaba = [90000, 150000, 70000, 220000, 110000, 250000, 80000];
   const trenHariIni: TitikTren[] = slotWaktu.map((slot, idx) => {
     const nextSlot = slotWaktu[idx + 1] || '23:59';
     const trxSlot = trxHariIni.filter(t => {
       const jam = t.jam || '00:00';
       return jam >= slot && jam < nextSlot;
     });
-    const nyata = trxSlot.length > 0;
-    const omzet = nyata ? trxSlot.reduce((acc, t) => acc + (t.tipe === 'Jual' ? t.nominal : 0), 0) : (demo && trxHariIni.length === 0 ? mockHariIniOmzet[idx] : 0);
-    const laba = nyata ? trxSlot.reduce((acc, t) => acc + (t.tipe === 'Jual' ? (t.laba ?? 0) : 0), 0) : (demo && trxHariIni.length === 0 ? mockHariIniLaba[idx] : 0);
+    const m = trxSlot.length > 0 ? metrik(trxSlot) : null;
     return {
       label: slot,
-      omzet,
-      laba,
+      omzet: m ? m.omzet : 0,
+      laba: m ? m.laba : 0,
       hariIni: true,
-      contoh: demo && trxHariIni.length === 0,
+      contoh: false,
     };
   });
 
