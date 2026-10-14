@@ -1,0 +1,44 @@
+{
+  "name": "epicphone-sistem",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "node scripts/build.mjs",
+    "build:gas": "node scripts/build.mjs",
+    "push": "npm run build && clasp push",
+    "deploy": "node scripts/deploy.mjs",
+    "build:single": "node scripts/build-single.mjs",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint src --ext .ts,.tsx",
+    "typecheck": "tsc --noEmit -p .",
+    "cek:css": "node scripts/cek-css.mjs",
+    "purge:css": "node scripts/purge-css.mjs",
+    "format": "prettier --write src",
+    "dok:skema": "node scripts/dok-skema.mjs",
+    "verifikasi": "npm run typecheck && npm test && npm run build"
+  },
+  "dependencies": {
+    "preact": "^10.24.3"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
+    "@playwright/test": "^1.63.0",
+    "@preact/preset-vite": "^2.9.1",
+    "@types/google-apps-script": "^2.0.13",
+    "@typescript-eslint/eslint-plugin": "^8.8.1",
+    "@typescript-eslint/parser": "^8.8.1",
+    "esbuild": "^0.24.0",
+    "eslint": "^9.12.0",
+    "prettier": "^3.3.3",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.9",
+    "vite-plugin-singlefile": "^2.0.2",
+    "vitest": "^2.1.2"
+  },
+  "allowScripts": {
+    "esbuild": true
+  }
+}

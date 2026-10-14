@@ -1,0 +1,6 @@
+{
+  "scriptId": "GANTI_DENGAN_SCRIPT_ID_ANDA",
+  "rootDir": "dist",
+  "fileExtension": "gs",
+  "filePushOrder": ["Code.gs", "SetupSheets.gs"]
+}

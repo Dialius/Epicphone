@@ -1,0 +1,9 @@
+{
+  "scriptId": "1ARi-172xbopc-c0LigUOU6JGnYkA64-yZ_CLBdHPcbJVGh_O6OsLlcsV",
+  "rootDir": "dist",
+  "fileExtension": "gs",
+  "filePushOrder": [
+    "Code.gs",
+    "SetupSheets.gs"
+  ]
+}
