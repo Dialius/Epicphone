@@ -53,7 +53,10 @@ export function LaporanScreen({ onBukaRiwayatFilter, onShowToast, isPrivacyMode,
   const [mengunduh, setMengunduh] = useState(false);
 
   useEffect(() => {
-    if (!muat) return;
+    if (!muat) {
+      setData(laporanContoh(PERIODE_API[periode]));
+      return;
+    }
     let batal = false;
     setMemuat(true);
     setGalat('');
@@ -63,7 +66,7 @@ export function LaporanScreen({ onBukaRiwayatFilter, onShowToast, isPrivacyMode,
       setMemuat(false);
     });
     return () => { batal = true; };
-  }, [periode, versi]);
+  }, [periode, versi, muat]);
 
   // Semua nominal mengikuti mode privasi (sebelumnya hanya laba bersih)
   const uang = (n: number) => (isPrivacyMode ? MASK : rupiah(n));
@@ -222,14 +225,22 @@ export function LaporanScreen({ onBukaRiwayatFilter, onShowToast, isPrivacyMode,
           </section>
 
           <section class="card">
-            <Judul teks="Tren laba bersih 12 bulan terakhir" info="Laba bersih tiap bulan dalam juta rupiah. Batang hijau adalah bulan berjalan." />
-            <div class="lap-chart" role="img" aria-label={`Grafik batang tren laba bersih 12 bulan terakhir. ${L.tren12Bulan.map(m => `${m.bulan} ${m.laba} juta`).join(', ')}`}>
+            <Judul
+              teks={periode === 'Hari ini' ? 'Tren laba bersih hari ini (per jam)' : periode === '7 hari' ? 'Tren laba bersih 7 hari terakhir' : 'Tren laba bersih 12 bulan terakhir'}
+              info={periode === 'Hari ini' ? 'Laba bersih transaksi hari ini per rentang waktu.' : periode === '7 hari' ? 'Laba bersih harian selama 7 hari terakhir.' : 'Laba bersih tiap bulan dalam juta rupiah. Batang hijau adalah bulan berjalan.'}
+            />
+            <div class="lap-chart" role="img" aria-label={`Grafik batang tren laba. ${L.tren12Bulan.map(m => `${m.bulan} ${m.laba}`).join(', ')}`}>
               {L.tren12Bulan.map((m, idx) => {
                 const pct = Math.round((Math.abs(m.laba) / maxLaba12Bulan) * 100);
                 const sekarang = idx === L.tren12Bulan.length - 1;
+                const labelNilai = isPrivacyMode
+                  ? '•••'
+                  : Math.abs(m.laba) < 1
+                  ? `${Math.round(m.laba * 1000)}rb`
+                  : `${m.laba}jt`;
                 return (
                   <div key={m.bulan} class="lap-chart-col">
-                    <span class="lap-chart-val">{isPrivacyMode ? '•••' : `${m.laba}jt`}</span>
+                    <span class="lap-chart-val">{labelNilai}</span>
                     <div class="lap-chart-area"><div class={`lap-chart-fill ${sekarang ? 'sekarang' : ''} ${m.laba < 0 ? 'neg' : ''}`} style={{ height: `${Math.max(4, pct)}%` }} /></div>
                     <span class="lap-chart-lbl">{m.bulan}</span>
                   </div>

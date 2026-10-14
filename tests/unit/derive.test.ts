@@ -12,6 +12,9 @@ describe('derive', () => {
     expect(d.hariIni.omzet).toBe(jual.reduce((s, t) => s + t.nominal, 0));
     expect(d.tren).toHaveLength(7);
     expect(d.tren[6].hariIni).toBe(true);
+    expect(d.trenHariIni).toHaveLength(7);
+    expect(d.tren30Hari).toHaveLength(30);
+    expect(d.tren30Hari[29].hariIni).toBe(true);
   });
   it('transaksi dibatalkan tidak dihitung', () => {
     const batal = MOCK_TRANSAKSI_TERAKHIR.map(t => (t.tipe === 'Jual' ? { ...t, status: 'Dibatalkan' as const } : t));

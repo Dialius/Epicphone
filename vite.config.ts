@@ -42,7 +42,7 @@ function gasRpcPlugin(): Plugin {
               }
             }
 
-            const gasUrl = 'https://script.google.com/macros/s/AKfycbwCvuvri7Ef4vw_whCitCe_3anCwJjGhfN7GHg6W_zJ19Ex8YUuNoJMr0lQUVs85k9Zxg/exec';
+            const gasUrl = 'https://script.google.com/macros/s/AKfycbwFBNsO7u65gXSu6dj_WUHdTEMv7hAF0jtH-A1BWV7vMeu7Gh_XtpeL66SKP2W2Fp5yHQ/exec';
             const r = await fetch(gasUrl, {
               method: 'POST',
               headers: {

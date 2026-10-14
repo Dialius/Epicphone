@@ -498,9 +498,32 @@ export function hitungLayar(d: DataLaporan, periode: string, bulanTerkunciSet: S
   const aks = kontribusi > 0 ? Math.round((x.labaAksesoris / kontribusi) * 100) : 0;
   const bulanIni = d.hariIni.slice(0, 7);
   const tren: LaporanLayar['tren12Bulan'] = [];
-  for (let i = 11; i >= 0; i--) {
-    const b = geserBulan(bulanIni, -i);
-    tren.push({ bulan: `${labelBulan(b).slice(0, 3)} ${b.slice(2, 4)}`, laba: bulatSatu(hitungLabaBulanan(d, b).labaBersih / 1_000_000) });
+  if (periode === '7-hari') {
+    const HARI_7 = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
+    for (let i = 6; i >= 0; i--) {
+      const tgl = tambahHariIso(d.hariIni, -i);
+      const dayLaba = hitungLabaRentang(d, tgl, tgl);
+      const dObj = new Date(tgl + 'T00:00:00Z');
+      const label = isNaN(dObj.getTime()) ? tgl.slice(5) : `${HARI_7[dObj.getUTCDay()]} ${dObj.getUTCDate()}`;
+      tren.push({ bulan: label, laba: bulatSatu(dayLaba.labaBersih / 1_000_000) });
+    }
+  } else if (periode === 'hari-ini') {
+    const jamSesi = ['09:00', '11:00', '13:00', '15:00', '17:00', '19:00', '21:00'];
+    const trxHariIni = d.penjualan.filter(q => q.Status === 'Aktif' && str(q.Tanggal) === d.hariIni);
+    jamSesi.forEach((jam, idx) => {
+      const jamNext = jamSesi[idx + 1] || '23:59';
+      const slotTrx = trxHariIni.filter(q => {
+        const j = str(q.Jam || '00:00');
+        return j >= jam && j < jamNext;
+      });
+      const totalSlot = slotTrx.reduce((acc, q) => acc + angka(q.Total), 0);
+      tren.push({ bulan: jam, laba: bulatSatu((totalSlot * 0.15) / 1_000_000) });
+    });
+  } else {
+    for (let i = 11; i >= 0; i--) {
+      const b = geserBulan(bulanIni, -i);
+      tren.push({ bulan: `${labelBulan(b).slice(0, 3)} ${b.slice(2, 4)}`, laba: bulatSatu(hitungLabaBulanan(d, b).labaBersih / 1_000_000) });
+    }
   }
   const penjualanAktif = d.penjualan.filter(q => q.Status === 'Aktif' && str(q.Tanggal) >= r.dari && str(q.Tanggal) <= r.sampai);
   const bonus: Record<string, number> = {};

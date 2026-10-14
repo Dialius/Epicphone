@@ -19,6 +19,8 @@ export interface Dashboard {
   piutang: number; piutangTelat: number;
   servisBerjalan: number; servisSiap: number;
   tren: TitikTren[];
+  trenHariIni: TitikTren[];
+  tren30Hari: TitikTren[];
   transaksiTerakhir: TransaksiItem[];
 }
 
@@ -83,6 +85,41 @@ export function hitungDashboard(a: {
     tren.push({ label: `${HARI_PENDEK[d.getUTCDay()]} ${d.getUTCDate()}`, omzet: m ? m.omzet : (mock?.omzet ?? 0), laba: m ? m.laba : (mock?.laba ?? 0), hariIni: i === 0, contoh: demo && !nyata });
   }
 
+  // Tren 30 hari terakhir
+  const tren30Hari: TitikTren[] = [];
+  for (let i = 29; i >= 0; i--) {
+    const d = geser(ref, -i);
+    const s = tglWib(d);
+    const dayList = a.transaksi.filter(t => t.tanggal === s);
+    const nyata = dayList.length > 0;
+    const mock = demo && !nyata ? MOCK_TREN_30_HARI.find(x => x.tgl === d.getUTCDate()) : undefined;
+    const m = nyata ? metrik(dayList) : null;
+    tren30Hari.push({ label: `${d.getUTCDate()}`, omzet: m ? m.omzet : (mock?.omzet ?? 0), laba: m ? m.laba : (mock?.laba ?? 0), hariIni: i === 0, contoh: demo && !nyata });
+  }
+
+  // Tren Hari Ini per slot waktu
+  const slotWaktu = ['09:00', '11:00', '13:00', '15:00', '17:00', '19:00', '21:00'];
+  const trxHariIni = a.transaksi.filter(t => t.tanggal === refStr && t.status !== 'Dibatalkan');
+  const mockHariIniOmzet = [450000, 850000, 350000, 1100000, 650000, 1250000, 400000];
+  const mockHariIniLaba = [90000, 150000, 70000, 220000, 110000, 250000, 80000];
+  const trenHariIni: TitikTren[] = slotWaktu.map((slot, idx) => {
+    const nextSlot = slotWaktu[idx + 1] || '23:59';
+    const trxSlot = trxHariIni.filter(t => {
+      const jam = t.jam || '00:00';
+      return jam >= slot && jam < nextSlot;
+    });
+    const nyata = trxSlot.length > 0;
+    const omzet = nyata ? trxSlot.reduce((acc, t) => acc + (t.tipe === 'Jual' ? t.nominal : 0), 0) : (demo && trxHariIni.length === 0 ? mockHariIniOmzet[idx] : 0);
+    const laba = nyata ? trxSlot.reduce((acc, t) => acc + (t.tipe === 'Jual' ? (t.laba ?? 0) : 0), 0) : (demo && trxHariIni.length === 0 ? mockHariIniLaba[idx] : 0);
+    return {
+      label: slot,
+      omzet,
+      laba,
+      hariIni: true,
+      contoh: demo && trxHariIni.length === 0,
+    };
+  });
+
   const piutangList = a.tagihan.filter(t => t.jenis === 'Piutang pelanggan' && t.status !== 'Lunas' && t.sisa > 0);
   return {
     tanggalRef: refStr, hariIni, kemarin,
@@ -93,6 +130,8 @@ export function hitungDashboard(a: {
     servisBerjalan: a.servis.filter(s => s.status === 'Antri' || s.status === 'Dikerjakan').length,
     servisSiap: a.servis.filter(s => s.status === 'Selesai' && s.jenis === 'Pelanggan').length, // servis unit toko yang selesai langsung Ready di stok, bukan tugas menunggu
     tren,
+    trenHariIni,
+    tren30Hari,
     transaksiTerakhir: a.transaksi.slice(0, 5),
   };
 }

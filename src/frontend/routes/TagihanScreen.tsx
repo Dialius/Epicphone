@@ -1,6 +1,4 @@
-import { linkWa, normalisasiWa } from '../lib/format';
-// TagihanScreen.tsx — S26 Buku Tagihan (Piutang & Hutang)
-// Summary strip, aging segmented horizontal bar, filtering, & debt/receivable ledger
+import { linkWa, normalisasiWa, rupiahRingkas } from '../lib/format';
 
 import { useState } from 'preact/hooks';
 import { Tagihan, MOCK_TAGIHAN } from '../mock/data-contoh';
@@ -65,38 +63,60 @@ export function TagihanScreen({ tagihanList = MOCK_TAGIHAN, onBukaDetailTagihan,
         </div>
       </div>
 
-      {/* Aging Segmented Horizontal Bar (Section 8.14 S26) */}
-      <div class="card">
-        <div class="aging-card-header">
-          <span class="aging-card-title">
-            Analisis Umur Tagihan (Aging Bar)
-          </span>
-          <span class="aging-card-subtitle">Jatuh Tempo</span>
-        </div>
+      {/* Aging Segmented Horizontal Bar (Dihitung dari data nyata tagihan) */}
+      {(() => {
+        const piutangAktif = tagihanList.filter(t => t.jenis === 'Piutang pelanggan' && t.status !== 'Lunas' && t.sisa > 0);
+        const totalSisaPiutang = piutangAktif.reduce((acc, t) => acc + t.sisa, 0);
 
-        {/* Segmented Bar */}
-        <div class="aging-bar-container">
-          <div class="aging-bar-seg seg-belum" style={{ width: '60%' }} title="Belum Jatuh Tempo (60%)" />
-          <div class="aging-bar-seg seg-telat-1-7" style={{ width: '25%' }} title="Telat 1-7 Hari (25%)" />
-          <div class="aging-bar-seg seg-telat-8-30" style={{ width: '15%' }} title="Telat 8-30 Hari (15%)" />
-        </div>
+        const belumTempoSisa = piutangAktif.filter(t => t.hariTelat <= 0).reduce((acc, t) => acc + t.sisa, 0);
+        const telat1sd7Sisa = piutangAktif.filter(t => t.hariTelat >= 1 && t.hariTelat <= 7).reduce((acc, t) => acc + t.sisa, 0);
+        const telat8sd30Sisa = piutangAktif.filter(t => t.hariTelat >= 8 && t.hariTelat <= 30).reduce((acc, t) => acc + t.sisa, 0);
+        const telatLebih30Sisa = piutangAktif.filter(t => t.hariTelat > 30).reduce((acc, t) => acc + t.sisa, 0);
 
-        {/* Legend */}
-        <div class="aging-legend-row mt-2">
-          <div class="aging-legend-item">
-            <div class="aging-dot dot-belum" />
-            <span>Belum Jatuh Tempo (Rp 3,0jt)</span>
+        const pctBelum = totalSisaPiutang > 0 ? Math.round((belumTempoSisa / totalSisaPiutang) * 100) : 100;
+        const pctTelat1sd7 = totalSisaPiutang > 0 ? Math.round((telat1sd7Sisa / totalSisaPiutang) * 100) : 0;
+        const pctTelat8sd30 = totalSisaPiutang > 0 ? Math.round((telat8sd30Sisa / totalSisaPiutang) * 100) : 0;
+        const pctTelatLebih30 = totalSisaPiutang > 0 ? Math.max(0, 100 - pctBelum - pctTelat1sd7 - pctTelat8sd30) : 0;
+
+        return (
+          <div class="card">
+            <div class="aging-card-header">
+              <span class="aging-card-title">Analisis Umur Piutang (Aging Bar)</span>
+              <span class="aging-card-subtitle">{totalSisaPiutang > 0 ? `Total Piutang ${rupiahRingkas(totalSisaPiutang)}` : 'Semua Lunas'}</span>
+            </div>
+
+            {/* Segmented Bar */}
+            <div class="aging-bar-container">
+              {pctBelum > 0 && <div class="aging-bar-seg seg-belum" style={{ width: `${pctBelum}%` }} title={`Belum Jatuh Tempo (${pctBelum}%) · ${rupiah(belumTempoSisa)}`} />}
+              {pctTelat1sd7 > 0 && <div class="aging-bar-seg seg-telat-1-7" style={{ width: `${pctTelat1sd7}%` }} title={`Telat 1-7 Hari (${pctTelat1sd7}%) · ${rupiah(telat1sd7Sisa)}`} />}
+              {pctTelat8sd30 > 0 && <div class="aging-bar-seg seg-telat-8-30" style={{ width: `${pctTelat8sd30}%` }} title={`Telat 8-30 Hari (${pctTelat8sd30}%) · ${rupiah(telat8sd30Sisa)}`} />}
+              {pctTelatLebih30 > 0 && <div class="aging-bar-seg seg-telat-8-30" style={{ width: `${pctTelatLebih30}%`, background: 'var(--bad-solid)' }} title={`Telat >30 Hari (${pctTelatLebih30}%) · ${rupiah(telatLebih30Sisa)}`} />}
+            </div>
+
+            {/* Legend */}
+            <div class="aging-legend-row mt-2">
+              <div class="aging-legend-item">
+                <div class="aging-dot dot-belum" />
+                <span>Belum Jatuh Tempo ({rupiahRingkas(belumTempoSisa)})</span>
+              </div>
+              <div class="aging-legend-item">
+                <div class="aging-dot dot-telat-1-7" />
+                <span>Telat 1-7 Hari ({rupiahRingkas(telat1sd7Sisa)})</span>
+              </div>
+              <div class="aging-legend-item">
+                <div class="aging-dot dot-telat-8-30" />
+                <span>Telat 8-30 Hari ({rupiahRingkas(telat8sd30Sisa)})</span>
+              </div>
+              {telatLebih30Sisa > 0 && (
+                <div class="aging-legend-item">
+                  <div class="aging-dot" style={{ background: 'var(--bad-solid)' }} />
+                  <span>Telat &gt;30 Hari ({rupiahRingkas(telatLebih30Sisa)})</span>
+                </div>
+              )}
+            </div>
           </div>
-          <div class="aging-legend-item">
-            <div class="aging-dot dot-telat-1-7" />
-            <span>Telat 1-7 Hari (Rp 1,2jt)</span>
-          </div>
-          <div class="aging-legend-item">
-            <div class="aging-dot dot-telat-8-30" />
-            <span>Telat &gt;30 Hari (Rp 0)</span>
-          </div>
-        </div>
-      </div>
+        );
+      })()}
 
       {/* Tabs Piutang vs Hutang */}
       <div class="tabs-underlined" role="tablist" aria-label="Jenis Tagihan">

@@ -207,6 +207,12 @@ export function App() {
   useEffect(() => {
     const h = (e: KeyboardEvent) => {
       if (e.key === 'Escape') { if (closeTopOverlay()) e.preventDefault(); return; }
+      // Pintasan global Ctrl+B / Cmd+B untuk toggle minimize sidebar
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'b' || e.key === 'B')) {
+        e.preventDefault();
+        setCiut(c => !c);
+        return;
+      }
       if (e.ctrlKey || e.metaKey || e.altKey || e.defaultPrevented) return;
       const el = e.target as HTMLElement;
       const mengetik = el?.matches?.('input,textarea,select,[contenteditable="true"]');
@@ -215,6 +221,7 @@ export function App() {
       if (k === 'n') { e.preventDefault(); setIsTransaksiOpen(true); }
       else if (k === '/') { e.preventDefault(); setIsPencarianOpen(true); }
       else if (k === 'p') { e.preventDefault(); refToggle.current.privasi(); }
+      else if (k === '[') { e.preventDefault(); setCiut(c => !c); }
     };
     window.addEventListener('keydown', h);
     return () => window.removeEventListener('keydown', h);
@@ -836,14 +843,14 @@ export function App() {
             onClick={ciut ? () => setCiut(false) : undefined}
             role={ciut ? 'button' : undefined}
             tabIndex={ciut ? 0 : undefined}
-            aria-label={ciut ? 'Besarkan menu samping' : undefined}
-            title={ciut ? 'Besarkan menu samping' : undefined}
+            aria-label={ciut ? 'Besarkan menu samping (Ctrl+B)' : undefined}
+            title={ciut ? 'Besarkan menu samping (Ctrl+B)' : undefined}
             onKeyDown={ciut ? e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setCiut(false); } } : undefined}
           >
             <img src={LOGO_DATA_URI} alt="Epic Phone" />
             <div class="sidebar-brand-text"><span class="sidebar-brand-title">EPIC PHONE</span><span class="sidebar-brand-sub">PURWOKERTO</span></div>
           </div>
-          <button type="button" class="icon-btn sidebar-toggle" onClick={() => setCiut(!ciut)} aria-label={ciut ? 'Besarkan menu samping' : 'Kecilkan menu samping'} aria-expanded={!ciut} title={ciut ? 'Besarkan menu samping' : 'Kecilkan menu samping'}>
+          <button type="button" class="icon-btn sidebar-toggle" onClick={() => setCiut(!ciut)} aria-label={ciut ? 'Besarkan menu samping (Ctrl+B)' : 'Kecilkan menu samping (Ctrl+B)'} aria-expanded={!ciut} title={ciut ? 'Besarkan menu samping (Ctrl+B)' : 'Kecilkan menu samping (Ctrl+B)'}>
             <IconSidebar size={20} ciut={ciut} />
           </button>
         </div>

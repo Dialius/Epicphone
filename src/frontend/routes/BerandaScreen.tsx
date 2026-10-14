@@ -1,5 +1,4 @@
-// BerandaScreen.tsx — dashboard. Menjawab dalam 5 detik: untung hari ini berapa, apa yang perlu ditangani,
-// bagaimana kondisi toko, dan di mana tombol untuk mencatat sesuatu.
+import { useState } from 'preact/hooks';
 import { Dashboard } from '../lib/derive';
 import { PeringatanItem, TransaksiItem } from '../mock/data-contoh';
 import { DrafJual } from '../lib/draf';
@@ -45,6 +44,17 @@ export function BerandaScreen(p: Props) {
   const kosong = d.transaksiTerakhir.length === 0 && d.stokReady === 0;
   const kemarin = d.kemarin;
   const perhatianTampil = p.perhatian.slice(0, 5);
+  const [filterTren, setFilterTren] = useState<'hari-ini' | '7-hari' | '30-hari'>('7-hari');
+  const dataTren = filterTren === 'hari-ini'
+    ? (d.trenHariIni || d.tren)
+    : filterTren === '30-hari'
+    ? (d.tren30Hari || d.tren)
+    : d.tren;
+  const judulTren = filterTren === 'hari-ini'
+    ? 'Omzet hari ini (per jam)'
+    : filterTren === '30-hari'
+    ? 'Omzet 30 hari terakhir'
+    : 'Omzet 7 hari terakhir';
 
   return (
     <div class="page">
@@ -130,11 +140,18 @@ export function BerandaScreen(p: Props) {
             </section>
 
             <section class="card area-trend" aria-labelledby="h-trend">
-              <div class="dash-sec-title">
-                <h2 id="h-trend">Omzet 7 hari terakhir</h2>
-                <button type="button" class="link-btn" onClick={() => p.onGo('laporan')}>Laporan <IconChevronRight size={14} /></button>
+              <div class="dash-sec-title" style={{ flexWrap: 'wrap', gap: 8 }}>
+                <h2 id="h-trend">{judulTren}</h2>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div class="segmented" style={{ padding: 2 }} role="group" aria-label="Filter tren omzet">
+                    <button type="button" style={{ height: 26, padding: '0 8px', fontSize: 12 }} class={filterTren === 'hari-ini' ? 'aktif' : ''} aria-pressed={filterTren === 'hari-ini'} onClick={() => setFilterTren('hari-ini')}>Hari ini</button>
+                    <button type="button" style={{ height: 26, padding: '0 8px', fontSize: 12 }} class={filterTren === '7-hari' ? 'aktif' : ''} aria-pressed={filterTren === '7-hari'} onClick={() => setFilterTren('7-hari')}>7 hari</button>
+                    <button type="button" style={{ height: 26, padding: '0 8px', fontSize: 12 }} class={filterTren === '30-hari' ? 'aktif' : ''} aria-pressed={filterTren === '30-hari'} onClick={() => setFilterTren('30-hari')}>30 hari</button>
+                  </div>
+                  <button type="button" class="link-btn" onClick={() => p.onGo('laporan')}>Laporan <IconChevronRight size={14} /></button>
+                </div>
               </div>
-              <BarChart data={d.tren} privasi={priv} />
+              <BarChart data={dataTren} privasi={priv} judul={judulTren} />
             </section>
 
             <section class="card area-trx" aria-labelledby="h-trx">

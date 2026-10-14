@@ -4,7 +4,7 @@ import { useState } from 'preact/hooks';
 import { rupiah, rupiahRingkas } from '../lib/format';
 import { TitikTren } from '../lib/derive';
 
-export function BarChart({ data, privasi }: { data: TitikTren[]; privasi?: boolean }) {
+export function BarChart({ data, privasi, judul = 'Omzet tren' }: { data: TitikTren[]; privasi?: boolean; judul?: string }) {
   const [tip, setTip] = useState<number | null>(null);
   const W = 560, H = 210, padL = 8, padR = 8, padT = 12, padB = 30;
   const max = Math.max(1, ...data.map(d => d.omzet));
@@ -14,14 +14,17 @@ export function BarChart({ data, privasi }: { data: TitikTren[]; privasi?: boole
     return (langkah.find(s => s >= f) || 10) * e;
   })();
   const plotH = H - padT - padB;
-  const bw = (W - padL - padR) / data.length;
-  const avg = data.reduce((s, d) => s + d.omzet, 0) / data.length;
+  const count = Math.max(1, data.length);
+  const bw = (W - padL - padR) / count;
+  const avg = data.length ? data.reduce((s, d) => s + d.omzet, 0) / data.length : 0;
   const y = (v: number) => padT + plotH - (v / nice) * plotH;
-  const tertinggi = data.reduce((a, b) => (b.omzet > a.omzet ? b : a), data[0]);
-  const terendah = data.reduce((a, b) => (b.omzet < a.omzet ? b : a), data[0]);
+  const itemPertama = data[0] || { label: '-', omzet: 0, laba: 0, hariIni: false, contoh: false };
+  const tertinggi = data.reduce((a, b) => (b.omzet > a.omzet ? b : a), itemPertama);
+  const terendah = data.reduce((a, b) => (b.omzet < a.omzet ? b : a), itemPertama);
   const ringkas = privasi
-    ? 'Grafik omzet 7 hari terakhir disembunyikan karena mode privasi aktif.'
-    : `Omzet 7 hari terakhir. Tertinggi ${tertinggi.label} ${rupiahRingkas(tertinggi.omzet)}, terendah ${terendah.label} ${rupiahRingkas(terendah.omzet)}, rata-rata ${rupiahRingkas(avg)} per hari.`;
+    ? `Grafik ${judul} disembunyikan karena mode privasi aktif.`
+    : `${judul}. Tertinggi ${tertinggi.label} ${rupiahRingkas(tertinggi.omzet)}, terendah ${terendah.label} ${rupiahRingkas(terendah.omzet)}, rata-rata ${rupiahRingkas(avg)}.`;
+  const padLabel = data.length > 20 ? 4 : data.length > 10 ? 2 : 1;
   return (
     <div class="chart-wrap" style={{ position: 'relative' }}>
       <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={ringkas} class={privasi ? 'masked' : ''}>
@@ -32,27 +35,29 @@ export function BarChart({ data, privasi }: { data: TitikTren[]; privasi?: boole
           </g>
         ))}
         {data.map((d, i) => {
-          const x = padL + i * bw + bw * 0.18, w = bw * 0.64, h = Math.max(2, (d.omzet / nice) * plotH);
+          const x = padL + i * bw + bw * 0.18, w = Math.max(2, bw * 0.64), h = Math.max(2, (d.omzet / nice) * plotH);
+          const tampilLabel = i % padLabel === 0 || i === data.length - 1;
+          const fontSize = data.length > 15 ? 10 : 12;
           return (
             <g key={i} onMouseEnter={() => setTip(i)} onMouseLeave={() => setTip(null)} onClick={() => setTip(tip === i ? null : i)} style={{ cursor: 'pointer' }}>
               <rect x={padL + i * bw} y={padT} width={bw} height={plotH + padB} fill="transparent" />
-              <rect class={`bar ${d.hariIni ? 'today' : ''}`} x={x} y={padT + plotH - h} width={w} height={h} rx="5" />
-              <text x={x + w / 2} y={H - 10} text-anchor="middle" font-size="12" font-weight={d.hariIni ? 700 : 400} fill={d.hariIni ? 'var(--text)' : 'var(--text-3)'}>{d.label}</text>
-              {d.hariIni && !privasi && <text x={x + w / 2} y={padT + plotH - h - 6} text-anchor="middle" font-size="12" font-weight="700" fill="var(--text)">{rupiahRingkas(d.omzet)}</text>}
+              <rect class={`bar ${d.hariIni ? 'today' : ''}`} x={x} y={padT + plotH - h} width={w} height={h} rx={w > 6 ? 4 : 1} />
+              {tampilLabel && <text x={x + w / 2} y={H - 10} text-anchor="middle" font-size={fontSize} font-weight={d.hariIni ? 700 : 400} fill={d.hariIni ? 'var(--text)' : 'var(--text-3)'}>{d.label}</text>}
+              {d.hariIni && !privasi && data.length <= 10 && <text x={x + w / 2} y={padT + plotH - h - 6} text-anchor="middle" font-size="12" font-weight="700" fill="var(--text)">{rupiahRingkas(d.omzet)}</text>}
             </g>
           );
         })}
         {!privasi && avg > 0 && <line x1={padL} x2={W - padR} y1={y(avg)} y2={y(avg)} stroke="var(--warn-solid)" stroke-width="1.5" stroke-dasharray="5 4" />}
       </svg>
-      {tip !== null && !privasi && (
+      {tip !== null && !privasi && data[tip] && (
         <div class="chart-tip" style={{ left: `${((padL + tip * bw + bw / 2) / W) * 100}%`, top: `${(y(data[tip].omzet) / H) * 100}%` }}>
           {data[tip].label}: {rupiah(data[tip].omzet)}
         </div>
       )}
-      {!privasi && avg > 0 && <div class="stale-note" style={{ marginTop: 4 }}>Garis putus-putus: rata-rata {rupiahRingkas(avg)} per hari</div>}
+      {!privasi && avg > 0 && <div class="stale-note" style={{ marginTop: 4 }}>Garis putus-putus: rata-rata {rupiahRingkas(avg)}</div>}
       <table class="sr-only">
-        <caption>Omzet 7 hari terakhir</caption>
-        <thead><tr><th>Hari</th><th>Omzet</th></tr></thead>
+        <caption>{judul}</caption>
+        <thead><tr><th>Rentang</th><th>Omzet</th></tr></thead>
         <tbody>{data.map(d => <tr key={d.label}><td>{d.label}</td><td>{privasi ? 'disembunyikan' : rupiah(d.omzet)}</td></tr>)}</tbody>
       </table>
     </div>

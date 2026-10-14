@@ -61,4 +61,16 @@ describe('dokumen cetak', () => {
     expect(h).toContain('Rp ••• •••');
     expect(h).not.toContain(`Rp ${L.omzet.toLocaleString('id-ID')}`);
   });
+
+  it('laporanContoh beradaptasi dengan filter periode hari-ini dan 7-hari', () => {
+    const lHari = laporanContoh('hari-ini');
+    expect(lHari.periode).toContain('Hari ini');
+    expect(lHari.jumlahHari).toBe(1);
+    expect(lHari.tren12Bulan).toHaveLength(7); // slot jam hari ini
+
+    const l7Hari = laporanContoh('7-hari');
+    expect(l7Hari.periode).toContain('29 Sep');
+    expect(l7Hari.jumlahHari).toBe(7);
+    expect(l7Hari.tren12Bulan).toHaveLength(7); // 7 hari harian
+  });
 });
