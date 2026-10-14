@@ -95,3 +95,7 @@ npm run cek:css     # pagar pengaman CSS (kelas/variabel yatim, font minimum, uk
 npm run purge:css   # lapor aturan CSS yang kelasnya tak dipakai (tambah --tulis untuk membuangnya)
 ```
 Galeri komponen (mode dev): `http://localhost:5173/#/_galeri`
+
+## Lisensi
+
+Proyek ini dilisensikan di bawah [MIT License](LICENSE) © 2026 Epic Phone Purwokerto.
