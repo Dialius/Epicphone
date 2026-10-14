@@ -52,6 +52,8 @@ export interface HasilJual {
   idemKey: string;
 }
 
+import { PaketBonusPreset, DEFAULT_PAKET_BONUS } from '../routes/PengaturanScreen';
+
 interface Props {
   isOpen?: boolean;
   onClose: () => void;
@@ -60,6 +62,7 @@ interface Props {
   aksesoris?: Aksesoris[];
   kontak?: KontakItem[];
   katalog?: ProdukKatalog[];
+  paketBonus?: PaketBonusPreset[];
   nomorNota: string;
   garansiHari?: number;
   garansiBaruBulan?: number;
@@ -81,7 +84,7 @@ const isoPlus = (hari: number) => new Date(Date.now() + hari * 86400000).toISOSt
 
 const TT_AWAL: UnitForm = { ...UNIT_KOSONG, kelengkapan: 'Unit saja', bebasKunci: 'Belum dicek' };
 
-export function JualModal({ onClose, unitAwal, units = [], aksesoris = [], kontak = [], katalog = [], nomorNota, garansiHari = 7, garansiBaruBulan = 12, lanjutDraf, isPrivacyMode: priv, onSimpanSukses }: Props) {
+export function JualModal({ onClose, unitAwal, units = [], aksesoris = [], kontak = [], katalog = [], paketBonus = DEFAULT_PAKET_BONUS, nomorNota, garansiHari = 7, garansiBaruBulan = 12, lanjutDraf, isPrivacyMode: priv, onSimpanSukses }: Props) {
   const id = useFieldId('jl');
   const draf = useRef(lanjutDraf && !unitAwal ? getDraf() : null).current;
   // isi draf lama bisa berbeda bentuk antar versi, jadi dibaca longgar lalu diberi nilai bawaan satu per satu
@@ -127,6 +130,43 @@ export function JualModal({ onClose, unitAwal, units = [], aksesoris = [], konta
   const togelUnit = (u: UnitHP) => {
     setUnitIds(l => (l.includes(u.id) ? l.filter(x => x !== u.id) : [...l, u.id]));
     setHargaUnit(h => { if (!(u.id in h)) return h; const c = { ...h }; delete c[u.id]; return c; });
+  };
+
+  const terapkanPreset = (preset: PaketBonusPreset) => {
+    const baruBonusStok: Record<string, boolean> = {};
+    const baruBonusGeneric: Record<string, boolean> = { tg: false, case: false, kabel: false };
+
+    preset.items.forEach(it => {
+      // 1. Cek apakah ada SKU spesifik di stok aksesoris
+      if (it.sku && aksesoris.some(a => a.sku === it.sku && a.stok > 0)) {
+        baruBonusStok[it.sku] = true;
+        return;
+      }
+      // 2. Cek apakah ada nama aksesoris yang cocok di stok aksesoris
+      const cocokStok = aksesoris.find(a =>
+        a.stok > 0 &&
+        (a.nama.toLowerCase().includes(it.nama.toLowerCase()) || it.nama.toLowerCase().includes(a.nama.toLowerCase()))
+      );
+      if (cocokStok) {
+        baruBonusStok[cocokStok.sku] = true;
+        return;
+      }
+      // 3. Fallback ke bonus generik non-stok
+      const n = it.nama.toLowerCase();
+      if (/tempered|tg|layar/.test(n)) baruBonusGeneric.tg = true;
+      else if (/case|silikon|casing/.test(n)) baruBonusGeneric.case = true;
+      else if (/kabel|cable|charge/.test(n)) baruBonusGeneric.kabel = true;
+    });
+
+    setBonusStok(baruBonusStok);
+    setBonus(baruBonusGeneric);
+    toast({ judul: `Preset ${preset.nama} dipilih`, desk: preset.items.map(i => i.nama).join(', ') || 'Bonus disesuaikan' });
+  };
+
+  const kosongkanSemuaBonus = () => {
+    setBonusStok({});
+    setBonus({ tg: false, case: false, kabel: false });
+    toast({ judul: 'Semua bonus dikosongkan' });
   };
 
   // ---- hitungan ----
@@ -345,6 +385,31 @@ export function JualModal({ onClose, unitAwal, units = [], aksesoris = [], konta
 
           <section class="form-section">
             <h3 class="form-section-title">Bonus gratis di nota <span class="badge badge-ready" style={{ marginLeft: 8 }}>Harga Rp 0</span></h3>
+            
+            {/* Pilihan cepat preset bonus */}
+            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center', margin: '8px 0 12px 0' }}>
+              <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)' }}>PRESET:</span>
+              {paketBonus.filter(p => p.aktif !== false).map(p => (
+                <button
+                  key={p.id}
+                  type="button"
+                  class="btn btn-secondary btn-sm"
+                  style={{ borderRadius: '14px', fontSize: '11px', padding: '3px 10px', height: '26px' }}
+                  onClick={() => terapkanPreset(p)}
+                >
+                  🎁 {p.nama}
+                </button>
+              ))}
+              <button
+                type="button"
+                class="btn btn-ghost btn-sm"
+                style={{ borderRadius: '14px', fontSize: '11px', padding: '3px 10px', height: '26px' }}
+                onClick={kosongkanSemuaBonus}
+              >
+                ✕ Tanpa Bonus
+              </button>
+            </div>
+
             {BONUS.map(b => (
               <label key={b.k} class="toggle-row" style={{ padding: '6px 0' }}>
                 <span style={{ fontSize: 'var(--text-sm)' }}>{b.nama}</span>

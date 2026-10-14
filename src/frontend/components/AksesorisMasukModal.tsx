@@ -18,6 +18,7 @@ function isoHariIni(): string {
 
 /** Isian yang dikirim modal ini ke pemanggil */
 export interface DataAksesorisMasuk {
+  tanggalMasuk?: string;
   nama: string; kategori: Aksesoris['kategori']; qty: number; hargaBeli: number; hargaJual: number; sku?: string;
   supplier: string; metodeBayar: 'Tunai' | 'Transfer' | 'Tempo'; dibayar: number; jatuhTempo?: string;
   catatan?: string;
@@ -34,6 +35,7 @@ interface Props {
 
 export function AksesorisMasukModal({ onClose, onSimpan, onPilihHp, aksesorisList = [], suppliers = [] }: Props) {
   const id = useFieldId('am');
+  const [tanggalMasuk, setTanggalMasuk] = useState<string>(isoHariIni());
   const [nama, setNama] = useState('');
   const [kategori, setKategori] = useState<Aksesoris['kategori']>('Lainnya');
   const [qty, setQty] = useState('');
@@ -72,6 +74,7 @@ export function AksesorisMasukModal({ onClose, onSimpan, onPilihHp, aksesorisLis
     if (!valid) return;
     setMenyimpan(true);
     const hasil = await Promise.resolve(onSimpan({
+      tanggalMasuk: tanggalMasuk || isoHariIni(),
       nama: nama.trim(), kategori: ada ? ada.kategori : kategori, qty: n, hargaBeli: satuan, hargaJual: duit(hargaJual) || (ada ? ada.hargaJual : 0), sku: ada?.sku, catatan: catatan.trim() || undefined,
       supplier: supplier.trim(), metodeBayar: metode, dibayar: dibayarSekarang, jatuhTempo: sisa > 0 ? tempo : undefined,
     }));
@@ -126,11 +129,16 @@ export function AksesorisMasukModal({ onClose, onSimpan, onPilihHp, aksesorisLis
           </Field>
         </section>
         <section class="form-section">
-          <h3 class="form-section-title">Pembayaran ke supplier</h3>
-          <Field id={`${id}-sup`} label={metode === 'Tempo' ? 'Supplier' : 'Asal barang (opsional)'} wajib={metode === 'Tempo'} error={coba ? galat.supplier : ''}>
-            <input id={`${id}-sup`} class="form-input" list={`${id}-sups`} value={supplier} placeholder="Contoh: Toko Aksesoris Jaya" onInput={e => setSupplier((e.target as HTMLInputElement).value)} />
-            <datalist id={`${id}-sups`}>{suppliers.map(s => <option key={s} value={s} />)}</datalist>
-          </Field>
+          <h3 class="form-section-title">Waktu & Pembayaran Supplier</h3>
+          <div class="form-grid2">
+            <Field id={`${id}-tgl`} label="Tanggal barang masuk" hint="Bisa diatur jika mencatat stok lama; default hari ini">
+              <input id={`${id}-tgl`} type="date" class="form-input" max={isoHariIni()} value={tanggalMasuk} onInput={e => setTanggalMasuk((e.target as HTMLInputElement).value)} />
+            </Field>
+            <Field id={`${id}-sup`} label={metode === 'Tempo' ? 'Supplier' : 'Asal barang (opsional)'} wajib={metode === 'Tempo'} error={coba ? galat.supplier : ''}>
+              <input id={`${id}-sup`} class="form-input" list={`${id}-sups`} value={supplier} placeholder="Contoh: Toko Aksesoris Jaya" onInput={e => setSupplier((e.target as HTMLInputElement).value)} />
+              <datalist id={`${id}-sups`}>{suppliers.map(s => <option key={s} value={s} />)}</datalist>
+            </Field>
+          </div>
           <SegmentedField label="Cara bayar" value={metode} onChange={setMetode} opsi={[{ v: 'Tunai', l: 'Tunai' }, { v: 'Transfer', l: 'Transfer' }, { v: 'Tempo', l: 'Tempo', d: 'Bayar sebagian atau nanti' }]} />
           {metode === 'Tempo' && (
             <div class="form-grid2">

@@ -42,6 +42,7 @@ export interface ItemMasukInput {
 }
 
 export interface PembelianInput {
+  tanggal?: string; // yyyy-mm-dd opsional untuk barang lama yang baru dimasukkan
   idSupplier?: string;
   namaSupplier: string;
   metodeBayar: 'Tunai' | 'Transfer' | 'Tempo';
@@ -63,7 +64,7 @@ export interface HasilPembelian {
 export function simpanPembelian(data: PembelianInput): HasilPembelian {
   return denganLock(() => Db.transaksi(() => {
     const now = sekarang();
-    const tgl = tglIso(now);
+    const tgl = data.tanggal && /^\d{4}-\d{2}-\d{2}$/.test(data.tanggal) ? data.tanggal : tglIso(now);
     const jam = jamHm(now);
 
     // 1. Validasi (semua sebelum menulis apa pun)
@@ -163,7 +164,7 @@ export function simpanPembelian(data: PembelianInput): HasilPembelian {
           Estimasi_Servis: Math.max(0, Math.round(angka(it.estimasiServis))),
           Harga_Jual_Target: Math.max(0, Math.round(angka(it.hargaJualTarget))),
           Status: it.perluServis ? STATUS_UNIT.SERVIS : STATUS_UNIT.READY,
-          Umur_Stok_Hari: 0,
+          Umur_Stok_Hari: Math.max(0, selisihHariIso(tgl, tglIso(now))),
           Tgl_Keluar: '',
           ID_Penjualan: '',
           Link_Foto: '',

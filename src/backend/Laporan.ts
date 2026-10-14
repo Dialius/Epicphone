@@ -521,7 +521,7 @@ export function hitungLayar(d: DataLaporan, periode: string, bulanTerkunciSet: S
     });
   } else {
     for (let i = 11; i >= 0; i--) {
-      const b = geserBulan(bulanIni, -i);
+      const b = geserBulan(r.bulan, -i);
       tren.push({ bulan: `${labelBulan(b).slice(0, 3)} ${b.slice(2, 4)}`, laba: bulatSatu(hitungLabaBulanan(d, b).labaBersih / 1_000_000) });
     }
   }

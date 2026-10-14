@@ -85,6 +85,10 @@ export default defineConfig({
     modulePreload: { polyfill: false },
     assetsInlineLimit: 1000000,
   },
+  esbuild: {
+    legalComments: 'none',
+    drop: ['console', 'debugger'],
+  },
   define: {
     'import.meta.env.DEV': JSON.stringify(process.env.NODE_ENV !== 'production'),
   },

@@ -322,6 +322,7 @@ export function App() {
     sedangProses.current = true;
     try {
       const res = await apiCall<any>('simpanPembelian', sesuai<PembelianInput>({
+        tanggal: data.tanggalMasuk,
         namaSupplier: data.supplier || 'Supplier', metodeBayar: data.metodeBayar || 'Tunai', dibayar: data.dibayar, jatuhTempo: data.jatuhTempo, catatan: data.catatan,
         items: [{ tipe: 'Aksesoris', namaBarang: data.nama, sku: data.sku, kategori: data.kategori, qty: data.qty, hargaBeli: data.hargaBeli, hargaJualTarget: data.hargaJual }],
       }), buatIdemKey());
@@ -359,6 +360,7 @@ export function App() {
     try {
       await catatKatalogBarangMasuk(data);
       const res = await apiCall<any>('simpanPembelian', sesuai<PembelianInput>({
+        tanggal: data.tanggalMasuk,
         namaSupplier: data.supplier || 'Supplier',
         metodeBayar: data.metodeBayar || 'Tunai',
         dibayar: data.dibayar ?? data.hargaBeli,
@@ -390,12 +392,18 @@ export function App() {
       const urutUnit = urutanBerikut(stokList.map(u => u.id), 'UNT');
       const id = res.data?.unitsCreated?.[0] || nomorDokumen('UNT', urutUnit);
       const modal = (data.hargaBeli || 0) + (data.biayaLain || 0);
+      const umurHari = data.tanggalMasuk
+        ? Math.max(0, Math.floor((Date.now() - new Date(data.tanggalMasuk + 'T00:00:00Z').getTime()) / 86400000))
+        : 0;
+      const tglMasuk = data.tanggalMasuk && data.tanggalMasuk !== new Date().toISOString().slice(0, 10)
+        ? data.tanggalMasuk
+        : 'Hari ini';
       const unit: UnitHP = {
         id, nama: data.nama, merek: data.merek || 'HP', model: data.model || data.nama, imei: data.imei, imei2: data.imei2,
         kondisi: data.kondisi || 'Bekas', grade: data.grade, kelengkapan: (data.kelengkapan as UnitHP['kelengkapan']) || 'Fullset', baterai: data.baterai,
         bebasKunci: (data.bebasKunci as UnitHP['bebasKunci']) || 'Ya', hargaBeli: data.hargaBeli, biayaLain: data.biayaLain || 0, biayaServis: 0, hpp: modal,
         hargaJualTarget: data.hargaJualTarget || Math.round(modal * 1.15), status: data.perluServis ? 'Servis' : 'Ready',
-        umurHari: 0, tglMasuk: 'Hari ini', catatan: [data.catatan, data.keluhanServis].filter(Boolean).join(' · '), foto: data.foto || [], sumberSupplier: data.supplier,
+        umurHari, tglMasuk, catatan: [data.catatan, data.keluhanServis].filter(Boolean).join(' · '), foto: data.foto || [], sumberSupplier: data.supplier,
       };
       setStokList(l => [unit, ...l]);
       setTransaksiList(l => [{
@@ -1045,6 +1053,7 @@ export function App() {
               isPrivacyMode={isPrivacyMode}
               onTogglePrivacy={() => setIsPrivacyMode(!isPrivacyMode)}
               onShowToast={(m, tp) => toast({ tipe: tp === 'error' ? 'error' : 'success', judul: m })}
+              aksesorisList={aksesorisList}
             />
           )}
         </main>
@@ -1150,6 +1159,14 @@ export function App() {
           aksesoris={aksesorisList}
           kontak={kontakList}
           katalog={katalogList}
+          paketBonus={(() => {
+            try {
+              const p = JSON.parse(pengaturanServer?.PAKET_BONUS || '');
+              return Array.isArray(p) && p.length > 0 ? p : undefined;
+            } catch {
+              return undefined;
+            }
+          })()}
           garansiBaruBulan={garansiBaruPakai}
           nomorNota={nomorDokumen('JUAL', urutanBerikut(transaksiList.map(t => t.id), 'JUAL'))}
           garansiHari={garansiHariPakai}

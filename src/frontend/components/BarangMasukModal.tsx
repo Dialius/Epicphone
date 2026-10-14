@@ -21,6 +21,7 @@ function isoHariIni(): string {
 
 /** Isian yang dikirim modal ini ke pemanggil */
 export interface DataBarangMasuk {
+  tanggalMasuk?: string;
   nama: string; merek: string; model: string; varian: string; warna: string;
   imei: string; imei2?: string; catatan?: string; supplier: string;
   metodeBayar: 'Tunai' | 'Transfer' | 'Tempo'; dibayar: number; jatuhTempo?: string;
@@ -49,6 +50,7 @@ export function BarangMasukModal({ onClose, onSimpan, onPilihAksesoris, stokList
   const id = useFieldId('bm');
   const [u, setU] = useState<UnitForm>(UNIT_KOSONG);
   const ubah = (patch: Partial<UnitForm>) => setU(x => ({ ...x, ...patch }));
+  const [tanggalMasuk, setTanggalMasuk] = useState<string>(isoHariIni());
   const [catatan, setCatatan] = useState('');
   const [supplier, setSupplier] = useState('');
   const [metode, setMetode] = useState<'Tunai' | 'Transfer' | 'Tempo'>('Tunai');
@@ -99,6 +101,7 @@ export function BarangMasukModal({ onClose, onSimpan, onPilihAksesoris, stokList
     if (!valid) { bodyRef.current?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus(); return; }
     setMenyimpan(mode);
     const hasil = await Promise.resolve(onSimpan({
+      tanggalMasuk: tanggalMasuk || isoHariIni(),
       nama, merek: u.merek.trim(), model: u.model.trim(), varian: u.varian.trim(), warna: u.warna.trim(),
       imei: u.imei, imei2: u.imei2 || undefined, catatan: catatan.trim() || undefined, supplier: supplier.trim(),
       metodeBayar: metode, dibayar: dibayarSekarang, jatuhTempo: sisaHutang > 0 ? tempo : undefined,
@@ -162,11 +165,16 @@ export function BarangMasukModal({ onClose, onSimpan, onPilihAksesoris, stokList
         </section>
 
         <section class="form-section" aria-labelledby={`${id}-s3b`}>
-          <h3 class="form-section-title" id={`${id}-s3b`}>Pembayaran ke supplier</h3>
-          <Field id={`${id}-sup`} label={metode === 'Tempo' ? 'Supplier' : 'Asal barang (opsional)'} wajib={metode === 'Tempo'} error={tampilGalat('supplier')} hint="Supplier atau nama penjual; supplier baru otomatis masuk ke Kontak">
-            <input id={`${id}-sup`} class="form-input" list={`${id}-sups`} value={supplier} placeholder="Contoh: CV Maju Seluler" aria-invalid={tampilGalat('supplier') ? 'true' : undefined} onInput={e => setSupplier((e.target as HTMLInputElement).value)} />
-            <datalist id={`${id}-sups`}>{suppliers.map(s => <option key={s} value={s} />)}</datalist>
-          </Field>
+          <h3 class="form-section-title" id={`${id}-s3b`}>Waktu & Pembayaran Supplier</h3>
+          <div class="form-grid2 stack-sm">
+            <Field id={`${id}-tgl`} label="Tanggal barang masuk" hint="Bisa diatur jika mencatat stok lama; default hari ini">
+              <input id={`${id}-tgl`} type="date" class="form-input" max={isoHariIni()} value={tanggalMasuk} onInput={e => setTanggalMasuk((e.target as HTMLInputElement).value)} />
+            </Field>
+            <Field id={`${id}-sup`} label={metode === 'Tempo' ? 'Supplier' : 'Asal barang (opsional)'} wajib={metode === 'Tempo'} error={tampilGalat('supplier')} hint="Supplier atau nama penjual">
+              <input id={`${id}-sup`} class="form-input" list={`${id}-sups`} value={supplier} placeholder="Contoh: CV Maju Seluler" aria-invalid={tampilGalat('supplier') ? 'true' : undefined} onInput={e => setSupplier((e.target as HTMLInputElement).value)} />
+              <datalist id={`${id}-sups`}>{suppliers.map(s => <option key={s} value={s} />)}</datalist>
+            </Field>
+          </div>
           <SegmentedField label="Cara bayar" value={metode} onChange={setMetode} opsi={[{ v: 'Tunai', l: 'Tunai' }, { v: 'Transfer', l: 'Transfer' }, { v: 'Tempo', l: 'Tempo', d: 'Bayar sebagian atau nanti' }]} />
           {metode === 'Tempo' && (
             <div class="form-grid2 stack-sm">

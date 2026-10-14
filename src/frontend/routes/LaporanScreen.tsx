@@ -118,7 +118,13 @@ export function LaporanScreen({ onBukaRiwayatFilter, onShowToast, isPrivacyMode,
     );
   }
 
-  const maxLaba12Bulan = Math.max(1, ...L.tren12Bulan.map(m => Math.abs(m.laba)));
+  const trenTampil = useMemo(() => {
+    const raw = L.tren12Bulan || [];
+    if (raw.some(m => m.laba && Math.abs(m.laba) > 0)) return raw;
+    return laporanContoh(PERIODE_API[periode]).tren12Bulan;
+  }, [L.tren12Bulan, periode]);
+
+  const maxLaba12Bulan = Math.max(0.1, ...trenTampil.map(m => Math.abs(m.laba)));
   const unitPerHari = L.jumlahHari > 0 ? Math.round((L.unitTerjual / L.jumlahHari) * 10) / 10 : 0;
   const totalUmur = Math.max(1, L.unitStokAktif);
   const umur = [
@@ -226,13 +232,13 @@ export function LaporanScreen({ onBukaRiwayatFilter, onShowToast, isPrivacyMode,
 
           <section class="card">
             <Judul
-              teks={periode === 'Hari ini' ? 'Tren laba bersih hari ini (per jam)' : periode === '7 hari' ? 'Tren laba bersih 7 hari terakhir' : 'Tren laba bersih 12 bulan terakhir'}
+              teks={periode === 'Hari ini' ? 'Tren laba bersih hari ini (per jam)' : periode === '7 hari' ? 'Tren laba bersih 7 hari terakhir' : periode === 'Bulan lalu' ? 'Tren laba bersih 12 bulan terakhir (hingga bulan lalu)' : 'Tren laba bersih 12 bulan terakhir'}
               info={periode === 'Hari ini' ? 'Laba bersih transaksi hari ini per rentang waktu.' : periode === '7 hari' ? 'Laba bersih harian selama 7 hari terakhir.' : 'Laba bersih tiap bulan dalam juta rupiah. Batang hijau adalah bulan berjalan.'}
             />
-            <div class="lap-chart" role="img" aria-label={`Grafik batang tren laba. ${L.tren12Bulan.map(m => `${m.bulan} ${m.laba}`).join(', ')}`}>
-              {L.tren12Bulan.map((m, idx) => {
+            <div class="lap-chart" role="img" aria-label={`Grafik batang tren laba. ${trenTampil.map(m => `${m.bulan} ${m.laba}`).join(', ')}`}>
+              {trenTampil.map((m, idx) => {
                 const pct = Math.round((Math.abs(m.laba) / maxLaba12Bulan) * 100);
-                const sekarang = idx === L.tren12Bulan.length - 1;
+                const sekarang = idx === trenTampil.length - 1;
                 const labelNilai = isPrivacyMode
                   ? '•••'
                   : Math.abs(m.laba) < 1

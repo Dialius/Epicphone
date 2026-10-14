@@ -2,10 +2,84 @@
 // Profil Toko, Garansi & Nota, Paket Bonus, Ambang, Tampilan, Backup & Pemulihan (PULIHKAN keyword), Konsistensi, Log, & Tentang
 
 import { useEffect, useState } from 'preact/hooks';
-import { MOCK_TOKO, MOCK_LOG } from '../mock/data-contoh';
-import { IconShield, IconDatabase, IconCheck, IconAlertTriangle } from '../components/Icons';
+import { MOCK_TOKO, MOCK_LOG, Aksesoris } from '../mock/data-contoh';
+import { IconShield, IconDatabase, IconCheck, IconAlertTriangle, IconPlus, IconClose } from '../components/Icons';
 import { ModalShell } from '../components/ModalShell';
 import { Field } from '../components/ui/Form';
+
+export interface ItemBonusPreset {
+  sku?: string;
+  nama: string;
+  qty: number;
+}
+
+export interface PaketBonusPreset {
+  id: string;
+  nama: string;
+  deskripsi?: string;
+  items: ItemBonusPreset[];
+  aktif?: boolean;
+}
+
+export const DEFAULT_PAKET_BONUS: PaketBonusPreset[] = [
+  {
+    id: 'p1',
+    nama: 'Paket Dasar',
+    items: [
+      { nama: 'Tempered Glass Layar 9H', qty: 1 },
+      { nama: 'Casing Silikon Bening', qty: 1 },
+    ],
+    aktif: true,
+  },
+  {
+    id: 'p2',
+    nama: 'Paket Lengkap VIP',
+    items: [
+      { nama: 'Tempered Glass Layar 9H', qty: 1 },
+      { nama: 'Casing Silikon Bening', qty: 1 },
+      { nama: 'Kabel Fast Charging', qty: 1 },
+    ],
+    aktif: true,
+  },
+];
+
+const ITEM_BONUS_STANDAR = [
+  'Tempered Glass Layar 9H',
+  'Casing Silikon Bening',
+  'Kabel Fast Charging',
+  'Gratis Pindah Data',
+  'Adaptor Quick Charge',
+];
+
+const SHORTCUT_SECTIONS = [
+  {
+    t: '1. Navigasi Global',
+    s: [
+      { d: 'Ciutkan Sidebar', k: 'Ctrl+B / [' },
+      { d: 'Menu Cepat', k: 'N' },
+      { d: 'Cari Global', k: '/' },
+      { d: 'Privasi', k: 'P' },
+      { d: 'Tutup Pop-up', k: 'Esc' },
+    ],
+  },
+  {
+    t: '2. Menu Cepat (N)',
+    s: [
+      { d: 'Kasir Penjualan', k: 'J' },
+      { d: 'Barang Masuk', k: 'B' },
+      { d: 'Servis Masuk', k: 'S' },
+      { d: 'Terima Piutang', k: 'P' },
+    ],
+  },
+  {
+    t: '3. Navigasi Tabel',
+    s: [
+      { d: 'Pindah Baris', k: '↓ / ↑' },
+      { d: 'Buka Detail / Aksi', k: 'Enter / Spasi' },
+      { d: 'Pindah Kolom', k: 'Tab' },
+    ],
+  },
+];
 
 export interface LogItemServer { tanggal: string; jam: string; aksi: string; sheet: string; id: string; ringkasan: string }
 export interface HasilKonsistensiUI {
@@ -45,6 +119,7 @@ interface Props {
   isPrivacyMode: boolean;
   onTogglePrivacy: () => void;
   onShowToast: (msg: string, type?: 'success' | 'error') => void;
+  aksesorisList?: Aksesoris[];
 }
 
 export function PengaturanScreen({
@@ -59,6 +134,7 @@ export function PengaturanScreen({
   isPrivacyMode,
   onTogglePrivacy,
   onShowToast,
+  aksesorisList = [],
 }: Props) {
   const [activeTab, setActiveTab] = useState<string>(subSection === 'backup' ? 'backup' : subSection === 'tentang' ? 'tentang' : 'profil');
 
@@ -78,6 +154,17 @@ export function PengaturanScreen({
   const [ukuranNota, setUkuranNota] = useState<'A5' | '80mm'>(P.NOTA_UKURAN === '80mm' ? '80mm' : 'A5');
   const [syaratGaransi, setSyaratGaransi] = useState(P.SYARAT_GARANSI ?? 'Segel baut toko utuh, tidak ada bekas jatuh/terkena air, bukan kesalahan pemakaian software root.');
 
+  // S42 Paket Bonus State
+  const parsePaketBonus = (raw?: string): PaketBonusPreset[] => {
+    try {
+      const p = raw && JSON.parse(raw);
+      if (Array.isArray(p) && p.length) return p;
+    } catch {}
+    return DEFAULT_PAKET_BONUS;
+  };
+  const [paketBonusList, setPaketBonusList] = useState<PaketBonusPreset[]>(() => parsePaketBonus(P.PAKET_BONUS));
+  const ubahPaket = (pIdx: number, fn: (p: PaketBonusPreset) => PaketBonusPreset) => setPaketBonusList(list => list.map((p, i) => i === pIdx ? fn(p) : p));
+
   // S43 Ambang Peringatan
   const [ambangUmurStok, setAmbangUmurStok] = useState(P.BATAS_UMUR_STOK_HARI ?? '30');
   const [ambangStokMin, setAmbangStokMin] = useState(P.STOK_MINIMUM_DEFAULT ?? '5');
@@ -92,6 +179,7 @@ export function PengaturanScreen({
     setGaransiAcc(pengaturan.GARANSI_AKSESORIS_HARI ?? '3'); setUkuranNota(pengaturan.NOTA_UKURAN === '80mm' ? '80mm' : 'A5');
     setSyaratGaransi(pengaturan.SYARAT_GARANSI ?? ''); setAmbangUmurStok(pengaturan.BATAS_UMUR_STOK_HARI ?? '30');
     setAmbangStokMin(pengaturan.STOK_MINIMUM_DEFAULT ?? '3'); setAmbangTempo(pengaturan.AMBANG_TEMPO_HARI ?? '3');
+    if (pengaturan.PAKET_BONUS) setPaketBonusList(parsePaketBonus(pengaturan.PAKET_BONUS));
     setSinkron(true);
   }, [pengaturan]);
 
@@ -187,6 +275,7 @@ export function PengaturanScreen({
           { key: 'bonus', label: 'Paket Bonus' },
           { key: 'ambang', label: 'Ambang Batas' },
           { key: 'tampilan', label: 'Tampilan' },
+          { key: 'shortcut', label: 'Pintasan Keyboard' },
           { key: 'backup', label: 'Backup & Pulihkan' },
           { key: 'konsistensi', label: 'Cek Konsistensi' },
           { key: 'log', label: 'Log Aktivitas' },
@@ -362,41 +451,171 @@ export function PengaturanScreen({
 
         {/* S42: Paket Bonus */}
         {activeTab === 'bonus' && (
-          <div class="card p-4 flex flex-col gap-3">
-            <h2 class="title-md">Paket Bonus Preset Jual</h2>
-            <p class="text-xs text-secondary">
-              Paket bonus memudahkan kasir memberikan bundling gratis saat melayani transaksi penjualan HP.
-            </p>
+          <div class="card p-4 flex flex-col gap-4" id="panel-bonus" role="tabpanel" aria-labelledby="tab-bonus" tabIndex={0}>
+            <div>
+              <h2 class="title-md">Paket Bonus Preset Jual</h2>
+              <p class="text-xs text-secondary mt-1">
+                Atur paket bonus bundling gratis penjualan HP. Terhubung ke stok aksesoris.
+              </p>
+            </div>
 
-            <div class="flex flex-col gap-2">
-              <div class="card bg-surface-2 p-3">
-                <div class="flex-between w-full">
-                  <strong class="text-sm">Paket Dasar (Standar Toko)</strong>
-                  <span class="badge badge-ready">Aktif</span>
-                </div>
-                <div class="text-xs text-secondary mt-1">
-                  • Tempered Glass Layar 9H<br />
-                  • Casing Silikon Bening Anti Crack
-                </div>
-              </div>
+            <div class="flex flex-col gap-3">
+              {paketBonusList.map((paket, pIdx) => (
+                <div key={paket.id} class="card bg-surface-2 p-3 flex flex-col gap-3 border border-subtle">
+                  <div class="flex-between w-full items-center gap-2">
+                    <div style={{ flex: 1 }}>
+                      <input
+                        type="text"
+                        class="form-input font-bold text-sm"
+                        value={paket.nama}
+                        placeholder="Nama Paket Bonus (misal: Paket Dasar)"
+                        onInput={e => ubahPaket(pIdx, p => ({ ...p, nama: (e.target as HTMLInputElement).value }))}
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      class={`btn btn-sm ${paket.aktif !== false ? 'btn-primary' : 'btn-ghost'}`}
+                      onClick={() => ubahPaket(pIdx, p => ({ ...p, aktif: !p.aktif }))}
+                    >
+                      {paket.aktif !== false ? 'Aktif' : 'Nonaktif'}
+                    </button>
+                    <button
+                      type="button"
+                      class="btn btn-ghost btn-sm text-danger-solid"
+                      title="Hapus paket"
+                      onClick={() => setPaketBonusList(list => list.filter((_, i) => i !== pIdx))}
+                    >
+                      <IconClose size={16} />
+                    </button>
+                  </div>
 
-              <div class="card bg-surface-2 p-3">
-                <div class="flex-between w-full">
-                  <strong class="text-sm">Paket Lengkap VIP</strong>
-                  <span class="badge badge-ready">Aktif</span>
+                  <div>
+                    <input
+                      type="text"
+                      class="form-input text-xs"
+                      value={paket.deskripsi || ''}
+                      placeholder="Keterangan singkat paket (opsional)"
+                      onInput={e => ubahPaket(pIdx, p => ({ ...p, deskripsi: (e.target as HTMLInputElement).value }))}
+                    />
+                  </div>
+
+                  {/* Daftar item bonus dalam paket ini */}
+                  <div class="flex flex-col gap-1.5">
+                    <span class="text-xs font-semibold text-secondary">Daftar Item Bonus:</span>
+                    {paket.items.length === 0 && (
+                      <span class="text-xs text-secondary italic">Belum ada item dalam paket ini.</span>
+                    )}
+                    {paket.items.map((it, itIdx) => (
+                      <div key={itIdx} class="flex items-center gap-2 bg-surface-2 p-2 rounded border border-subtle text-xs">
+                        <span style={{ flex: 1, minWidth: 0, fontWeight: 500 }}>
+                          {it.nama}
+                          {it.sku && <span class="badge badge-neutral" style={{ marginLeft: 8, fontSize: '10px' }}>Stok: {it.sku}</span>}
+                        </span>
+                        <div class="flex items-center gap-1">
+                          <button
+                            type="button"
+                            class="btn btn-ghost btn-sm"
+                            disabled={it.qty <= 1}
+                            onClick={() => ubahPaket(pIdx, p => ({ ...p, items: p.items.map((x, j) => j === itIdx ? { ...x, qty: Math.max(1, x.qty - 1) } : x) }))}
+                          >−</button>
+                          <span style={{ minWidth: '20px', textAlign: 'center', fontWeight: 'bold' }}>{it.qty}</span>
+                          <button
+                            type="button"
+                            class="btn btn-ghost btn-sm"
+                            onClick={() => ubahPaket(pIdx, p => ({ ...p, items: p.items.map((x, j) => j === itIdx ? { ...x, qty: x.qty + 1 } : x) }))}
+                          >+</button>
+                        </div>
+                        <button
+                          type="button"
+                          class="icon-btn text-secondary"
+                          onClick={() => ubahPaket(pIdx, p => ({ ...p, items: p.items.filter((_, j) => j !== itIdx) }))}
+                        >
+                          <IconClose size={14} />
+                        </button>
+                      </div>
+                    ))}
+
+                    {/* Tambah item baru ke paket ini */}
+                    <div class="flex gap-2 items-center mt-1">
+                      <select
+                        class="form-select text-xs h-8"
+                        style={{ flex: 1 }}
+                        onChange={e => {
+                          const target = e.target as HTMLSelectElement;
+                          const val = target.value;
+                          if (!val) return;
+                          const isStok = val.startsWith('STOK:');
+                          const sku = isStok ? val.slice(5) : '';
+                          const aks = isStok ? aksesorisList?.find(a => a.sku === sku) : null;
+                          ubahPaket(pIdx, p => ({
+                            ...p,
+                            items: [...p.items, { sku: aks?.sku, nama: aks ? aks.nama : val, qty: 1 }],
+                          }));
+                          target.value = '';
+                        }}
+                      >
+                        <option value="">+ Tambah item dari aksesoris stok / preset...</option>
+                        {aksesorisList && aksesorisList.filter(a => a.stok > 0).length > 0 && (
+                          <optgroup label="Aksesoris Ready di Stok (Potong stok fisik)">
+                            {aksesorisList.filter(a => a.stok > 0).map(a => (
+                              <option key={a.sku} value={`STOK:${a.sku}`}>
+                                {a.nama} (Stok: {a.stok})
+                              </option>
+                            ))}
+                          </optgroup>
+                        )}
+                        <optgroup label="Item Bonus Standar (Tanpa stok fisik)">
+                          {ITEM_BONUS_STANDAR.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                        </optgroup>
+                      </select>
+                    </div>
+                  </div>
                 </div>
-                <div class="text-xs text-secondary mt-1">
-                  • Tempered Glass Layar 9H<br />
-                  • Casing Silikon Bening Anti Crack<br />
-                  • Kabel Data Fast Charging Type-C / Lightning<br />
-                  • Jasa Pemindahan Data HP Lama (GRATIS)
-                </div>
-              </div>
+              ))}
+            </div>
+
+            <div class="flex gap-2">
+              <button
+                type="button"
+                class="btn btn-secondary text-xs h-9 justify-center"
+                style={{ flex: 1 }}
+                onClick={() => {
+                  const baruId = `preset-${Date.now()}`;
+                  setPaketBonusList(list => [
+                    ...list,
+                    {
+                      id: baruId,
+                      nama: `Paket Bonus ${list.length + 1}`,
+                      deskripsi: 'Paket bundling khusus',
+                      items: [],
+                      aktif: true,
+                    }
+                  ]);
+                }}
+              >
+                <IconPlus size={16} /> Tambah Paket Bonus Baru
+              </button>
+              <button
+                type="button"
+                class="btn btn-ghost text-xs h-9"
+                onClick={() => setPaketBonusList(DEFAULT_PAKET_BONUS)}
+              >
+                Reset Default
+              </button>
             </div>
 
             <div class="banner banner-warning text-xs">
-              Batas peringatan biaya modal bonus ditetapkan pada <strong>50% dari laba kotor</strong>. Jika modal bonus melampaui ambang ini, kasir akan mendapatkan peringatan sebelum nota disimpan.
+              Peringatan modal bonus aktif pada <strong>50% laba kotor</strong>. Kasir dapat memilih preset langsung saat penjualan.
             </div>
+
+            <button
+              type="button"
+              class="btn btn-primary h-11"
+              disabled={menyimpan}
+              onClick={() => void simpanKe({ PAKET_BONUS: JSON.stringify(paketBonusList) }, 'Paket bonus preset berhasil disimpan!')}
+            >
+              {menyimpan ? <span class="spinner" /> : null} Simpan Pengaturan Paket Bonus
+            </button>
           </div>
         )}
 
@@ -515,6 +734,38 @@ export function PengaturanScreen({
                   {isPrivacyMode ? 'Aktif (Disembunyikan)' : 'Terlihat'}
                 </button>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* S44b: Pintasan Keyboard */}
+        {activeTab === 'shortcut' && (
+          <div class="card p-4 flex flex-col gap-4" id="panel-shortcut" role="tabpanel" aria-labelledby="tab-shortcut" tabIndex={0}>
+            <div>
+              <h2 class="title-md">Daftar Pintasan Keyboard (Shortcuts)</h2>
+              <p class="text-xs text-secondary mt-1">
+                Gunakan tombol pintasan keyboard untuk mempercepat transaksi kasir dan navigasi tanpa perlu menyentuh mouse.
+              </p>
+            </div>
+
+            <div class="flex flex-col gap-3">
+              {SHORTCUT_SECTIONS.map(sec => (
+                <div key={sec.t} class="card bg-surface-2 p-3 border border-subtle">
+                  <strong class="text-sm block mb-2 font-semibold">{sec.t}</strong>
+                  <div class="flex flex-col gap-2 text-xs">
+                    {sec.s.map((it, idx) => (
+                      <div key={it.d} class={`flex-between ${idx < sec.s.length - 1 ? 'border-b border-subtle' : ''}`} style={{ padding: '4px 0' }}>
+                        <span>{it.d}</span>
+                        <kbd class="pick-key">{it.k}</kbd>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div class="banner banner-info text-xs">
+              <strong>Tips:</strong> Pintasan tombol nonaktif saat mengetik di dalam kotak isian.
             </div>
           </div>
         )}

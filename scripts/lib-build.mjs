@@ -67,7 +67,11 @@ export async function bangunFrontend() {
     await build({ configFile: path.resolve('vite.config.ts'), mode: 'production', logLevel: 'warn', build: { outDir: sementara, emptyOutDir: true } });
     const berkas = path.join(sementara, 'index.html');
     if (!fs.existsSync(berkas)) throw new Error('Vite tidak menghasilkan index.html');
-    return fs.readFileSync(berkas, 'utf8');
+    let html = fs.readFileSync(berkas, 'utf8');
+    html = html.replace(/<style[^>]*>([\s\S]*?)<\/style>/gi, (_, css) =>
+      `<style>${css.replace(/\/\*[\s\S]*?\*\//g, '').replace(/;\}/g, '}')}</style>`
+    );
+    return html;
   } finally {
     if (nodeEnvLama === undefined) delete process.env.NODE_ENV; else process.env.NODE_ENV = nodeEnvLama;
     fs.rmSync(sementara, { recursive: true, force: true });
