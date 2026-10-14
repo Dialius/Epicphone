@@ -122,6 +122,46 @@ interface Props {
   aksesorisList?: Aksesoris[];
 }
 
+export function normalisasiPaketBonus(data: unknown): PaketBonusPreset[] {
+  if (!data) return DEFAULT_PAKET_BONUS;
+  let parsed: unknown = data;
+  if (typeof data === 'string') {
+    try {
+      parsed = JSON.parse(data);
+    } catch {
+      return DEFAULT_PAKET_BONUS;
+    }
+  }
+  if (!Array.isArray(parsed) || parsed.length === 0) {
+    return DEFAULT_PAKET_BONUS;
+  }
+  return parsed.map((rawItem, idx) => {
+    const raw = (typeof rawItem === 'object' && rawItem !== null ? rawItem : {}) as Record<string, unknown>;
+    const id = String(raw.id || `preset-${idx + 1}`);
+    const nama = String(raw.nama || `Paket Bonus ${idx + 1}`);
+    const deskripsi = raw.deskripsi ? String(raw.deskripsi) : undefined;
+    const aktif = raw.aktif !== false;
+
+    const rawItems = Array.isArray(raw.items) ? raw.items : Array.isArray(raw.item) ? raw.item : [];
+    const items: ItemBonusPreset[] = rawItems.map((itRaw: unknown) => {
+      const it = (typeof itRaw === 'object' && itRaw !== null ? itRaw : {}) as Record<string, unknown>;
+      return {
+        nama: String(it.nama || 'Bonus'),
+        qty: Number(it.qty) > 0 ? Number(it.qty) : 1,
+        sku: it.sku ? String(it.sku) : undefined,
+      };
+    });
+
+    return {
+      id,
+      nama,
+      deskripsi,
+      items,
+      aktif,
+    };
+  });
+}
+
 export function PengaturanScreen({
   server,
   pengaturan,
@@ -136,7 +176,13 @@ export function PengaturanScreen({
   onShowToast,
   aksesorisList = [],
 }: Props) {
-  const [activeTab, setActiveTab] = useState<string>(subSection === 'backup' ? 'backup' : subSection === 'tentang' ? 'tentang' : 'profil');
+  const [activeTab, setActiveTab] = useState<string>(subSection && subSection !== 'indeks' ? subSection : 'profil');
+
+  useEffect(() => {
+    if (subSection && subSection !== 'indeks') {
+      setActiveTab(subSection);
+    }
+  }, [subSection]);
 
   // S40 Profil State
   const P = pengaturan ?? {};
@@ -155,15 +201,9 @@ export function PengaturanScreen({
   const [syaratGaransi, setSyaratGaransi] = useState(P.SYARAT_GARANSI ?? 'Segel baut toko utuh, tidak ada bekas jatuh/terkena air, bukan kesalahan pemakaian software root.');
 
   // S42 Paket Bonus State
-  const parsePaketBonus = (raw?: string): PaketBonusPreset[] => {
-    try {
-      const p = raw && JSON.parse(raw);
-      if (Array.isArray(p) && p.length) return p;
-    } catch {}
-    return DEFAULT_PAKET_BONUS;
-  };
-  const [paketBonusList, setPaketBonusList] = useState<PaketBonusPreset[]>(() => parsePaketBonus(P.PAKET_BONUS));
-  const ubahPaket = (pIdx: number, fn: (p: PaketBonusPreset) => PaketBonusPreset) => setPaketBonusList(list => list.map((p, i) => i === pIdx ? fn(p) : p));
+  const [paketBonusList, setPaketBonusList] = useState<PaketBonusPreset[]>(() => normalisasiPaketBonus(P.PAKET_BONUS));
+  const ubahPaket = (pIdx: number, fn: (p: PaketBonusPreset) => PaketBonusPreset) =>
+    setPaketBonusList(list => (list || []).map((p, i) => (i === pIdx ? fn({ ...p, items: p.items || [] }) : p)));
 
   // S43 Ambang Peringatan
   const [ambangUmurStok, setAmbangUmurStok] = useState(P.BATAS_UMUR_STOK_HARI ?? '30');
@@ -179,7 +219,7 @@ export function PengaturanScreen({
     setGaransiAcc(pengaturan.GARANSI_AKSESORIS_HARI ?? '3'); setUkuranNota(pengaturan.NOTA_UKURAN === '80mm' ? '80mm' : 'A5');
     setSyaratGaransi(pengaturan.SYARAT_GARANSI ?? ''); setAmbangUmurStok(pengaturan.BATAS_UMUR_STOK_HARI ?? '30');
     setAmbangStokMin(pengaturan.STOK_MINIMUM_DEFAULT ?? '3'); setAmbangTempo(pengaturan.AMBANG_TEMPO_HARI ?? '3');
-    if (pengaturan.PAKET_BONUS) setPaketBonusList(parsePaketBonus(pengaturan.PAKET_BONUS));
+    if (pengaturan.PAKET_BONUS) setPaketBonusList(normalisasiPaketBonus(pengaturan.PAKET_BONUS));
     setSinkron(true);
   }, [pengaturan]);
 
@@ -284,6 +324,7 @@ export function PengaturanScreen({
         ].map(item => (
           <button
             key={item.key}
+            type="button"
             role="tab"
             aria-selected={activeTab === item.key}
             aria-controls={`panel-${item.key}`}
@@ -460,118 +501,121 @@ export function PengaturanScreen({
             </div>
 
             <div class="flex flex-col gap-3">
-              {paketBonusList.map((paket, pIdx) => (
-                <div key={paket.id} class="card bg-surface-2 p-3 flex flex-col gap-3 border border-subtle">
-                  <div class="flex-between w-full items-center gap-2">
-                    <div style={{ flex: 1 }}>
+              {(paketBonusList || []).map((paket, pIdx) => {
+                const items = paket.items || [];
+                return (
+                  <div key={paket.id || `preset-${pIdx}`} class="card bg-surface-2 p-3 flex flex-col gap-3 border border-subtle">
+                    <div class="flex-between w-full items-center gap-2">
+                      <div style={{ flex: 1 }}>
+                        <input
+                          type="text"
+                          class="form-input font-bold text-sm"
+                          value={paket.nama || ''}
+                          placeholder="Nama Paket Bonus (misal: Paket Dasar)"
+                          onInput={e => ubahPaket(pIdx, p => ({ ...p, nama: (e.target as HTMLInputElement).value }))}
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        class={`btn btn-sm ${paket.aktif !== false ? 'btn-primary' : 'btn-ghost'}`}
+                        onClick={() => ubahPaket(pIdx, p => ({ ...p, aktif: !p.aktif }))}
+                      >
+                        {paket.aktif !== false ? 'Aktif' : 'Nonaktif'}
+                      </button>
+                      <button
+                        type="button"
+                        class="btn btn-ghost btn-sm text-danger-solid"
+                        title="Hapus paket"
+                        onClick={() => setPaketBonusList(list => (list || []).filter((_, i) => i !== pIdx))}
+                      >
+                        <IconClose size={16} />
+                      </button>
+                    </div>
+
+                    <div>
                       <input
                         type="text"
-                        class="form-input font-bold text-sm"
-                        value={paket.nama}
-                        placeholder="Nama Paket Bonus (misal: Paket Dasar)"
-                        onInput={e => ubahPaket(pIdx, p => ({ ...p, nama: (e.target as HTMLInputElement).value }))}
+                        class="form-input text-xs"
+                        value={paket.deskripsi || ''}
+                        placeholder="Keterangan singkat paket (opsional)"
+                        onInput={e => ubahPaket(pIdx, p => ({ ...p, deskripsi: (e.target as HTMLInputElement).value }))}
                       />
                     </div>
-                    <button
-                      type="button"
-                      class={`btn btn-sm ${paket.aktif !== false ? 'btn-primary' : 'btn-ghost'}`}
-                      onClick={() => ubahPaket(pIdx, p => ({ ...p, aktif: !p.aktif }))}
-                    >
-                      {paket.aktif !== false ? 'Aktif' : 'Nonaktif'}
-                    </button>
-                    <button
-                      type="button"
-                      class="btn btn-ghost btn-sm text-danger-solid"
-                      title="Hapus paket"
-                      onClick={() => setPaketBonusList(list => list.filter((_, i) => i !== pIdx))}
-                    >
-                      <IconClose size={16} />
-                    </button>
-                  </div>
 
-                  <div>
-                    <input
-                      type="text"
-                      class="form-input text-xs"
-                      value={paket.deskripsi || ''}
-                      placeholder="Keterangan singkat paket (opsional)"
-                      onInput={e => ubahPaket(pIdx, p => ({ ...p, deskripsi: (e.target as HTMLInputElement).value }))}
-                    />
-                  </div>
-
-                  {/* Daftar item bonus dalam paket ini */}
-                  <div class="flex flex-col gap-1.5">
-                    <span class="text-xs font-semibold text-secondary">Daftar Item Bonus:</span>
-                    {paket.items.length === 0 && (
-                      <span class="text-xs text-secondary italic">Belum ada item dalam paket ini.</span>
-                    )}
-                    {paket.items.map((it, itIdx) => (
-                      <div key={itIdx} class="flex items-center gap-2 bg-surface-2 p-2 rounded border border-subtle text-xs">
-                        <span style={{ flex: 1, minWidth: 0, fontWeight: 500 }}>
-                          {it.nama}
-                          {it.sku && <span class="badge badge-neutral" style={{ marginLeft: 8, fontSize: '10px' }}>Stok: {it.sku}</span>}
-                        </span>
-                        <div class="flex items-center gap-1">
+                    {/* Daftar item bonus dalam paket ini */}
+                    <div class="flex flex-col gap-1.5">
+                      <span class="text-xs font-semibold text-secondary">Daftar Item Bonus:</span>
+                      {items.length === 0 && (
+                        <span class="text-xs text-secondary italic">Belum ada item dalam paket ini.</span>
+                      )}
+                      {items.map((it, itIdx) => (
+                        <div key={itIdx} class="flex items-center gap-2 bg-surface-2 p-2 rounded border border-subtle text-xs">
+                          <span style={{ flex: 1, minWidth: 0, fontWeight: 500 }}>
+                            {it.nama || 'Bonus'}
+                            {it.sku && <span class="badge badge-neutral" style={{ marginLeft: 8, fontSize: '10px' }}>Stok: {it.sku}</span>}
+                          </span>
+                          <div class="flex items-center gap-1">
+                            <button
+                              type="button"
+                              class="btn btn-ghost btn-sm"
+                              disabled={(it.qty || 1) <= 1}
+                              onClick={() => ubahPaket(pIdx, p => ({ ...p, items: (p.items || []).map((x, j) => j === itIdx ? { ...x, qty: Math.max(1, (x.qty || 1) - 1) } : x) }))}
+                            >−</button>
+                            <span style={{ minWidth: '20px', textAlign: 'center', fontWeight: 'bold' }}>{it.qty || 1}</span>
+                            <button
+                              type="button"
+                              class="btn btn-ghost btn-sm"
+                              onClick={() => ubahPaket(pIdx, p => ({ ...p, items: (p.items || []).map((x, j) => j === itIdx ? { ...x, qty: (x.qty || 1) + 1 } : x) }))}
+                            >+</button>
+                          </div>
                           <button
                             type="button"
-                            class="btn btn-ghost btn-sm"
-                            disabled={it.qty <= 1}
-                            onClick={() => ubahPaket(pIdx, p => ({ ...p, items: p.items.map((x, j) => j === itIdx ? { ...x, qty: Math.max(1, x.qty - 1) } : x) }))}
-                          >−</button>
-                          <span style={{ minWidth: '20px', textAlign: 'center', fontWeight: 'bold' }}>{it.qty}</span>
-                          <button
-                            type="button"
-                            class="btn btn-ghost btn-sm"
-                            onClick={() => ubahPaket(pIdx, p => ({ ...p, items: p.items.map((x, j) => j === itIdx ? { ...x, qty: x.qty + 1 } : x) }))}
-                          >+</button>
+                            class="icon-btn text-secondary"
+                            onClick={() => ubahPaket(pIdx, p => ({ ...p, items: (p.items || []).filter((_, j) => j !== itIdx) }))}
+                          >
+                            <IconClose size={14} />
+                          </button>
                         </div>
-                        <button
-                          type="button"
-                          class="icon-btn text-secondary"
-                          onClick={() => ubahPaket(pIdx, p => ({ ...p, items: p.items.filter((_, j) => j !== itIdx) }))}
-                        >
-                          <IconClose size={14} />
-                        </button>
-                      </div>
-                    ))}
+                      ))}
 
-                    {/* Tambah item baru ke paket ini */}
-                    <div class="flex gap-2 items-center mt-1">
-                      <select
-                        class="form-select text-xs h-8"
-                        style={{ flex: 1 }}
-                        onChange={e => {
-                          const target = e.target as HTMLSelectElement;
-                          const val = target.value;
-                          if (!val) return;
-                          const isStok = val.startsWith('STOK:');
-                          const sku = isStok ? val.slice(5) : '';
-                          const aks = isStok ? aksesorisList?.find(a => a.sku === sku) : null;
-                          ubahPaket(pIdx, p => ({
-                            ...p,
-                            items: [...p.items, { sku: aks?.sku, nama: aks ? aks.nama : val, qty: 1 }],
-                          }));
-                          target.value = '';
-                        }}
-                      >
-                        <option value="">+ Tambah item dari aksesoris stok / preset...</option>
-                        {aksesorisList && aksesorisList.filter(a => a.stok > 0).length > 0 && (
-                          <optgroup label="Aksesoris Ready di Stok (Potong stok fisik)">
-                            {aksesorisList.filter(a => a.stok > 0).map(a => (
-                              <option key={a.sku} value={`STOK:${a.sku}`}>
-                                {a.nama} (Stok: {a.stok})
-                              </option>
-                            ))}
+                      {/* Tambah item baru ke paket ini */}
+                      <div class="flex gap-2 items-center mt-1">
+                        <select
+                          class="form-select text-xs h-8"
+                          style={{ flex: 1 }}
+                          onChange={e => {
+                            const target = e.target as HTMLSelectElement;
+                            const val = target.value;
+                            if (!val) return;
+                            const isStok = val.startsWith('STOK:');
+                            const sku = isStok ? val.slice(5) : '';
+                            const aks = isStok ? aksesorisList?.find(a => a.sku === sku) : null;
+                            ubahPaket(pIdx, p => ({
+                              ...p,
+                              items: [...(p.items || []), { sku: aks?.sku, nama: aks ? aks.nama : val, qty: 1 }],
+                            }));
+                            target.value = '';
+                          }}
+                        >
+                          <option value="">+ Tambah item dari aksesoris stok / preset...</option>
+                          {aksesorisList && aksesorisList.filter(a => a.stok > 0).length > 0 && (
+                            <optgroup label="Aksesoris Ready di Stok (Potong stok fisik)">
+                              {aksesorisList.filter(a => a.stok > 0).map(a => (
+                                <option key={a.sku} value={`STOK:${a.sku}`}>
+                                  {a.nama} (Stok: {a.stok})
+                                </option>
+                              ))}
+                            </optgroup>
+                          )}
+                          <optgroup label="Item Bonus Standar (Tanpa stok fisik)">
+                            {ITEM_BONUS_STANDAR.map(opt => <option key={opt} value={opt}>{opt}</option>)}
                           </optgroup>
-                        )}
-                        <optgroup label="Item Bonus Standar (Tanpa stok fisik)">
-                          {ITEM_BONUS_STANDAR.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                        </optgroup>
-                      </select>
+                        </select>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             <div class="flex gap-2">

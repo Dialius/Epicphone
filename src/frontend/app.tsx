@@ -17,7 +17,7 @@ import { GaransiScreen } from './routes/GaransiScreen';
 import { BiayaScreen } from './routes/BiayaScreen';
 import { KontakScreen } from './routes/KontakScreen';
 import { KatalogScreen } from './routes/KatalogScreen';
-import { PengaturanScreen } from './routes/PengaturanScreen';
+import { PengaturanScreen, normalisasiPaketBonus } from './routes/PengaturanScreen';
 
 import { BarangMasukModal, DataBarangMasuk } from './components/BarangMasukModal';
 import { POSISI_FOTO } from './components/FormUnitHP';
@@ -1161,14 +1161,7 @@ export function App() {
           aksesoris={aksesorisList}
           kontak={kontakList}
           katalog={katalogList}
-          paketBonus={(() => {
-            try {
-              const p = JSON.parse(pengaturanServer?.PAKET_BONUS || '');
-              return Array.isArray(p) && p.length > 0 ? p : undefined;
-            } catch {
-              return undefined;
-            }
-          })()}
+          paketBonus={normalisasiPaketBonus(pengaturanServer?.PAKET_BONUS)}
           garansiBaruBulan={garansiBaruPakai}
           nomorNota={nomorDokumen('JUAL', urutanBerikut(transaksiList.map(t => t.id), 'JUAL'))}
           garansiHari={garansiHariPakai}

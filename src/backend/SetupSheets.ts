@@ -254,7 +254,7 @@ function isiReferensi(ss: GoogleAppsScript.Spreadsheet.Spreadsheet): number {
 }
 
 export const PAKET_BONUS_AWAL = JSON.stringify([
-  { nama: 'Paket Dasar', item: [{ nama: 'Tempered Glass', qty: 1 }, { nama: 'Casing', qty: 1 }] },
+  { id: 'p1', nama: 'Paket Dasar', items: [{ nama: 'Tempered Glass Layar 9H', qty: 1 }, { nama: 'Casing Silikon Bening', qty: 1 }], aktif: true },
 ]);
 
 function isiPengaturan(ss: GoogleAppsScript.Spreadsheet.Spreadsheet, folderIds: Record<string, string>): number {

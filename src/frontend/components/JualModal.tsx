@@ -135,32 +135,33 @@ export function JualModal({ onClose, unitAwal, units = [], aksesoris = [], konta
   const terapkanPreset = (preset: PaketBonusPreset) => {
     const baruBonusStok: Record<string, boolean> = {};
     const baruBonusGeneric: Record<string, boolean> = { tg: false, case: false, kabel: false };
+    const items = preset.items || (preset as unknown as { item?: typeof preset.items }).item || [];
 
-    preset.items.forEach(it => {
+    items.forEach(it => {
       // 1. Cek apakah ada SKU spesifik di stok aksesoris
       if (it.sku && aksesoris.some(a => a.sku === it.sku && a.stok > 0)) {
         baruBonusStok[it.sku] = true;
         return;
       }
       // 2. Cek apakah ada nama aksesoris yang cocok di stok aksesoris
+      const namaItem = (it.nama || '').toLowerCase();
       const cocokStok = aksesoris.find(a =>
         a.stok > 0 &&
-        (a.nama.toLowerCase().includes(it.nama.toLowerCase()) || it.nama.toLowerCase().includes(a.nama.toLowerCase()))
+        (a.nama.toLowerCase().includes(namaItem) || namaItem.includes(a.nama.toLowerCase()))
       );
       if (cocokStok) {
         baruBonusStok[cocokStok.sku] = true;
         return;
       }
       // 3. Fallback ke bonus generik non-stok
-      const n = it.nama.toLowerCase();
-      if (/tempered|tg|layar/.test(n)) baruBonusGeneric.tg = true;
-      else if (/case|silikon|casing/.test(n)) baruBonusGeneric.case = true;
-      else if (/kabel|cable|charge/.test(n)) baruBonusGeneric.kabel = true;
+      if (/tempered|tg|layar/.test(namaItem)) baruBonusGeneric.tg = true;
+      else if (/case|silikon|casing/.test(namaItem)) baruBonusGeneric.case = true;
+      else if (/kabel|cable|charge/.test(namaItem)) baruBonusGeneric.kabel = true;
     });
 
     setBonusStok(baruBonusStok);
     setBonus(baruBonusGeneric);
-    toast({ judul: `Preset ${preset.nama} dipilih`, desk: preset.items.map(i => i.nama).join(', ') || 'Bonus disesuaikan' });
+    toast({ judul: `Preset ${preset.nama} dipilih`, desk: items.map(i => i.nama).filter(Boolean).join(', ') || 'Bonus disesuaikan' });
   };
 
   const kosongkanSemuaBonus = () => {
@@ -389,9 +390,9 @@ export function JualModal({ onClose, unitAwal, units = [], aksesoris = [], konta
             {/* Pilihan cepat preset bonus */}
             <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center', margin: '8px 0 12px 0' }}>
               <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)' }}>PRESET:</span>
-              {paketBonus.filter(p => p.aktif !== false).map(p => (
+              {(paketBonus || []).filter(p => p && p.aktif !== false).map((p, pIdx) => (
                 <button
-                  key={p.id}
+                  key={p.id || `preset-${pIdx}`}
                   type="button"
                   class="btn btn-secondary btn-sm"
                   style={{ borderRadius: '14px', fontSize: '11px', padding: '3px 10px', height: '26px' }}
