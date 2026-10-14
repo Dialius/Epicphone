@@ -771,7 +771,15 @@ export function App() {
 
       <aside class="sidebar" aria-label="Navigasi utama">
         <div class="sidebar-brand">
-          <div class="sidebar-brand-link">
+          <div
+            class="sidebar-brand-link"
+            onClick={ciut ? () => setCiut(false) : undefined}
+            role={ciut ? 'button' : undefined}
+            tabIndex={ciut ? 0 : undefined}
+            aria-label={ciut ? 'Besarkan menu samping' : undefined}
+            title={ciut ? 'Besarkan menu samping' : undefined}
+            onKeyDown={ciut ? e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setCiut(false); } } : undefined}
+          >
             <img src={LOGO_DATA_URI} alt="Epic Phone" />
             <div class="sidebar-brand-text"><span class="sidebar-brand-title">EPIC PHONE</span><span class="sidebar-brand-sub">PURWOKERTO</span></div>
           </div>
