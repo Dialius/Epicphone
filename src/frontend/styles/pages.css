@@ -105,10 +105,12 @@ button.kpi-mini:hover, a.kpi-mini:hover { border-color: var(--border-strong); bo
 
 /* ---- Stok ---- */
 .toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.toolbar-search { flex: 1 1 240px; min-width: 200px; }
-.toolbar-sort { position: relative; display: flex; align-items: center; }
+.toolbar-search { flex: 1 1 100%; min-width: 0; }
+@media (min-width: 640px) { .toolbar-search { flex: 1 1 200px; } }
+.toolbar-sort { position: relative; display: flex; align-items: center; flex: 1 1 auto; min-width: 0; }
 .toolbar-sort > svg { position: absolute; left: 12px; color: var(--text-3); pointer-events: none; z-index: 1; }
-.toolbar-sort .form-select { padding-left: 34px; min-width: 170px; height: 44px; }
+.toolbar-sort .form-select { padding-left: 34px; width: 100%; min-width: 0; height: 44px; }
+@media (min-width: 640px) { .toolbar-sort { flex: 0 0 auto; } .toolbar-sort .form-select { width: auto; min-width: 160px; } }
 @media (min-width: 1024px) { .toolbar-sort .form-select { height: 40px; } }
 .hide-sm { display: none; } @media (min-width: 640px) { .hide-sm { display: inline; } }
 .stok-split { display: block; }
@@ -178,10 +180,10 @@ button.kpi-mini:hover, a.kpi-mini:hover { border-color: var(--border-strong); bo
 .lap-stack { display: flex; flex-direction: column; gap: 20px; }
 .lap-periode { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; min-width: 0; }
 .lap-bandingkan { display: inline-flex; align-items: center; gap: 8px; font-size: var(--text-sm); color: var(--text-2); cursor: pointer; align-self: flex-start; }
-.lap-grid2 { display: grid; gap: 20px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+.lap-grid2 { display: grid; gap: 20px; grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr)); }
 .lap-grid3 { display: grid; gap: 12px; grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: 12px; }
-@media (max-width: 560px) { .lap-grid3 { grid-template-columns: 1fr; } }
-.lap-kpi3 { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+@media (max-width: 639px) { .lap-grid3 { grid-template-columns: 1fr; } }
+.lap-kpi3 { grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr)); }
 .lap-mini { display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; background: var(--bg-subtle); border: 1px solid var(--border); border-radius: var(--r-md); font-size: var(--text-sm); }
 .lap-mini strong { font-size: var(--text-lg); }
 .lap-card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
