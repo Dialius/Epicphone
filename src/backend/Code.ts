@@ -113,11 +113,12 @@ export function doGet(): GoogleAppsScript.HTML.HtmlOutput {
   if (HtmlService.XFrameOptionsMode && typeof out.setXFrameOptionsMode === 'function') {
     out.setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
   }
-  if (typeof out.addMetaTag === 'function') {
-    out.addMetaTag('viewport', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover');
-    out.addMetaTag('theme-color', '#12222F');
-    out.addMetaTag('apple-mobile-web-app-capable', 'yes');
-    out.addMetaTag('apple-mobile-web-app-status-bar-style', 'black-translucent');
+  try {
+    if (typeof out.addMetaTag === 'function') {
+      out.addMetaTag('viewport', 'width=device-width, initial-scale=1, viewport-fit=cover');
+    }
+  } catch (err: any) {
+    log('Sistem', 'Code', 'WARN', `addMetaTag gagal: ${err?.message || String(err)}`);
   }
   // Ikon tab browser = logo Epic Phone dari Google Drive.
   // Apps Script setFaviconUrl mewajibkan URL berakhiran ekstensi gambar (.png, .ico).
