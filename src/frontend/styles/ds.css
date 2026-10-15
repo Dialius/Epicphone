@@ -5,15 +5,15 @@
 
 /* ============ Reset dan elemen dasar ============ */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-html { font-size: 16px; -webkit-text-size-adjust: 100%; height: 100%; background: var(--bg-surface); }
+html { font-size: 16px; -webkit-text-size-adjust: 100%; height: 100%; min-height: 100%; background: var(--bg-surface); }
 body {
   font-family: var(--font-sans); font-size: var(--text-sm); line-height: 1.5;
   color: var(--text); background: var(--bg-surface);
-  font-variant-numeric: tabular-nums; height: 100%; min-width: 320px;
+  font-variant-numeric: tabular-nums; height: 100%; min-height: 100%; min-width: 320px;
   overflow: hidden; /* satu wadah scroll: .main */
   -webkit-font-smoothing: antialiased;
 }
-#app { height: 100%; }
+#app { height: 100%; min-height: 100%; }
 button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; touch-action: manipulation; }
 input, select, textarea { font: inherit; color: inherit; }
 a { color: inherit; }
@@ -51,9 +51,8 @@ body.scroll-lock { overflow: hidden; }
 .skip-link { position: absolute; left: 8px; top: -48px; z-index: var(--z-tip); background: var(--action-bg); color: var(--action-fg); padding: 10px 14px; border-radius: var(--r-md); font-weight: 600; }
 .skip-link:focus { top: 8px; }
 
-.shell { display: grid; grid-template-columns: 1fr; grid-template-rows: 1fr; height: 100%; }
-.shell-col { display: flex; flex-direction: column; min-width: 0; min-height: 0; height: 100%; }
-@media (max-width: 767px) { html, body, #app, .shell, .shell-col { height: 100dvh; } }
+.shell { display: grid; grid-template-columns: 1fr; grid-template-rows: 1fr; height: 100%; min-height: 100%; }
+.shell-col { display: flex; flex-direction: column; min-width: 0; min-height: 0; height: 100%; position: relative; }
 
 .sidebar { display: none; }
 .topbar {
@@ -101,6 +100,10 @@ body.scroll-lock { overflow: hidden; }
   height: calc(var(--nav-h) + env(safe-area-inset-bottom, 0px)); padding-bottom: env(safe-area-inset-bottom, 0px);
   padding-left: env(safe-area-inset-left, 0px); padding-right: env(safe-area-inset-right, 0px);
   background: var(--bg-surface); border-top: 1px solid var(--border); box-shadow: 0 -2px 10px rgba(15, 23, 42, 0.05);
+  transform: translateZ(0); -webkit-transform: translateZ(0);
+}
+.bottom-nav::after {
+  content: ''; position: absolute; left: 0; right: 0; top: 100%; height: 120px; background: var(--bg-surface); pointer-events: none;
 }
 .bn-item {
   position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; height: var(--nav-h);
