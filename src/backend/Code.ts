@@ -101,7 +101,11 @@ function tulis<T>(idemKey: string | undefined, fn: () => T): Respons<T> {
   }
 }
 
-// ── doGet ─────────────────────────────────────────────────────────────────────
+function ekstrakIdDrive(idAtauUrl?: string | null): string {
+  const str = String(idAtauUrl || '').trim();
+  const m = str.match(/\/d\/([a-zA-Z0-9_-]+)/) || str.match(/id=([a-zA-Z0-9_-]+)/);
+  return m ? m[1] : str;
+}
 
 export function doGet(): GoogleAppsScript.HTML.HtmlOutput {
   const out = HtmlService.createHtmlOutputFromFile('Index');
@@ -112,21 +116,22 @@ export function doGet(): GoogleAppsScript.HTML.HtmlOutput {
   if (typeof out.addMetaTag === 'function') {
     out.addMetaTag('viewport', 'width=device-width, initial-scale=1, viewport-fit=cover');
   }
-  // Ikon tab browser = logo Epic Phone.
-  // Apps Script setFaviconUrl membutuhkan URL HTTPS publik dari Google Drive / CDN.
+  // Ikon tab browser = logo Epic Phone dari Google Drive.
+  // Apps Script setFaviconUrl mewajibkan URL berakhiran ekstensi gambar (.png, .ico).
+  // Akhiran '?.png' meloloskan validasi Apps Script sekaligus mengambil gambar Drive asli dari CDN.
   try {
     const set = Db.getAll(SHEET.PENGATURAN) as Array<Record<string, unknown>>;
     const row = set.find(p => String(p.Kunci || '') === 'ID_BERKAS_LOGO');
-    const idLogo = row ? String(row.Nilai || '').trim() : '';
+    const fileId = ekstrakIdDrive(row ? String(row.Nilai || '') : '');
     if (typeof out.setFaviconUrl === 'function') {
-      if (idLogo && !idLogo.startsWith('(')) {
-        out.setFaviconUrl(`https://lh3.googleusercontent.com/d/${idLogo}`);
+      if (fileId && !fileId.startsWith('(')) {
+        out.setFaviconUrl(`https://lh3.googleusercontent.com/d/${fileId}?.png`);
       } else {
-        out.setFaviconUrl(FAVICON_DATA_URI);
+        out.setFaviconUrl('https://raw.githubusercontent.com/Dialius/Epicphone/main/favicon.png');
       }
     }
-  } catch {
-    /* tanpa ikon khusus */
+  } catch (err: any) {
+    log('Sistem', 'Code', 'ERROR', `Gagal setFaviconUrl: ${err?.message || String(err)}`);
   }
   return out;
 }
