@@ -82,44 +82,17 @@
   --z-header: 20; --z-sidebar: 30; --z-nav: 40; --z-pop: 60;
   --z-modal: 100; --z-toast: 200; --z-tip: 300;
 
-  /* =========  ALIAS NAMA LAMA (jangan dipakai di kode baru)  ========= */
-  --brand-navy-900: var(--navy-900); --brand-navy-800: var(--navy-800);
-  --brand-navy-700: var(--navy-700); --brand-navy-50: var(--navy-50);
-  --brand-green-500: var(--green-500); --brand-green-700: var(--green-700);
-  --brand-green-50: var(--green-50);
-  --brand-navy: var(--navy-900); --brand-navy-light: var(--navy-800);
-  --brand-green: var(--green-500); --brand-green-accent: #86EFAC;
-  --neutral-bg: var(--bg-app); --neutral-surface: var(--bg-surface);
-  --neutral-surface-2: var(--bg-subtle); --neutral-border: var(--border);
-  --neutral-border-strong: var(--border-strong);
-  --bg-surface-subtle: var(--bg-subtle);
-  --border-subtle: var(--border); --border-medium: var(--border-strong);
-  --border-focus: var(--green-600);
+  /* =========  ALIAS NAMA LAMA (tetap hidup untuk kompatibilitas layar lama)  ========= */
+  --brand-navy-900: var(--navy-900); --brand-navy: var(--navy-900); --brand-green: var(--green-500);
+  --neutral-surface: var(--bg-surface); --neutral-surface-2: var(--bg-subtle); --neutral-border: var(--border);
+  --border-subtle: var(--border);
   --text-primary: var(--text); --text-secondary: var(--text-2); --text-tertiary: var(--text-3);
-  --text-main: var(--text); --text-muted: var(--text-2); --text-dim: var(--text-3);
-  --status-danger: var(--bad-solid);   --status-danger-bg: var(--bad-bg);
-  --status-warning: var(--warn-solid); --status-warning-bg: var(--warn-bg);
-  --status-success: var(--ok-solid);   --status-success-bg: var(--ok-bg);
-  --status-info: var(--info-solid);    --status-info-bg: var(--info-bg);
-  --status-neutral: var(--mute-solid); --status-neutral-bg: var(--mute-bg);
-  --rad-sm: var(--r-sm); --rad-md: var(--r-md); --rad-lg: var(--r-lg); --rad-full: var(--r-full);
-  --shadow-sm: var(--elev-1); --shadow-md: var(--elev-2); --shadow-lg: var(--elev-3);
-  --shadow-card: none; --shadow-elevated: var(--elev-2); --shadow-modal: var(--elev-3);
-  --elevation-1: var(--elev-1); --elevation-2: var(--elev-2);
-  --elevation-3: var(--elev-3); --elevation-4: var(--elev-3);
-  --motion-ease-out: cubic-bezier(0, 0, 0.2, 1); --motion-ease-in: cubic-bezier(0.4, 0, 1, 1);
-  --row-selected-bg: var(--selected-bg);
-
-  /* variabel yang dulu dipakai tapi tidak pernah didefinisikan (F0-07) */
-  --status-danger-solid: var(--bad-solid);   --status-danger-text: var(--bad-fg);
-  --status-info-solid: var(--info-solid);    --status-info-text: var(--info-fg);
-  --status-success-solid: var(--ok-solid);
-  --status-warning-solid: var(--warn-solid); --status-warning-text: var(--warn-fg);
-  --status-ready-bg: var(--ok-bg);           --status-servis-bg: var(--warn-bg);
-  --elevation-e1: var(--elev-1); --elevation-e2: var(--elev-2);
-  --rad-xl: var(--r-xl); --radius-button: var(--r-md); --radius-card: var(--r-lg);
-  --radius-tag: var(--r-full);
-  --space-2: var(--sp-2); --space-4: var(--sp-4);
+  --status-danger: var(--bad-solid); --status-warning: var(--warn-solid); --status-success: var(--ok-solid);
+  --status-warning-bg: var(--warn-bg);
+  --brand-green-700: var(--green-700);
+  --rad-sm: var(--r-sm); --rad-md: var(--r-md); --rad-lg: var(--r-lg); --radius-card: var(--r-lg);
+  --shadow-sm: var(--elev-1);
+  --status-danger-solid: var(--bad-solid); --status-warning-solid: var(--warn-solid); --status-success-solid: var(--ok-solid);
 }
 
 @media (min-width: 768px)  { :root { --page-pad: 24px; } }

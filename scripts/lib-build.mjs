@@ -76,8 +76,9 @@ export async function bangunFrontend() {
         .replace(/\/\*[\s\S]*?\*\//g, '')
         .replace(/\s+/g, ' ')
         .replace(/\s*([{}:;,>~+])\s*/g, '$1')
+        .replace(/calc\(([^()]+(?:\([^()]*\)[^()]*)*)\)/g, (m, inner) => 'calc(' + inner.replace(/\+/g, ' + ') + ')')
         .replace(/;}/g, '}')
-        .replace(/(?<=[:\s,(])0px/g, '0')
+        .replace(/(?<=[:\s,(])0(px|rem|em|%)/g, '0')
         .replace(/rgba\(([0-9]+),\s*([0-9]+),\s*([0-9]+),\s*0\.([0-9]+)\)/g, 'rgba($1,$2,$3,.$4)')
         .trim();
       return `<style>${min}</style>`;

@@ -2,7 +2,6 @@
 // global (bisa dipanggil google.script.run dan trigger) oleh skrip build (scripts/gas-wrappers.mjs).
 // Fungsi yang tidak boleh dipanggil dari browser tidak diekspor dari sini.
 
-import { FAVICON_DATA_URI } from './Favicon';
 import { log } from './Log';
 import { Db } from './Db';
 import { IDEM_TTL_S, SHEET } from './Config';
