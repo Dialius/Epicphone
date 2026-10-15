@@ -19,6 +19,9 @@ interface Props {
   onKirimKeServis: (unit: UnitHP) => void;
   onBukaDetailUnit: (unit: UnitHP) => void;
   onCekGaransi?: (imei?: string) => void;
+  onEditAksesoris?: (sku: string, data: any) => Promise<boolean | void> | void;
+  onHapusAksesoris?: (sku: string, alasan?: string) => Promise<boolean | void> | void;
+  onTambahAksesoris?: (data: any) => Promise<boolean | void> | void;
   units?: UnitHP[];
   aksesoris?: Aksesoris[];
   isPrivacyMode: boolean;
@@ -56,6 +59,100 @@ export function StokScreen(p: Props) {
   const [tersalin, setTersalin] = useState(false);
   const lebar = useLebar(1440);
   const tabel = useLebar(1024);
+
+  const [modalAks, setModalAks] = useState(false);
+  const [editAksTarget, setEditAksTarget] = useState<Aksesoris | null>(null);
+  const [hapusAksTarget, setHapusAksTarget] = useState<Aksesoris | null>(null);
+  const [formSkuAks, setFormSkuAks] = useState('');
+  const [formNamaAks, setFormNamaAks] = useState('');
+  const [formKatAks, setFormKatAks] = useState('Pelindung layar');
+  const [formStokAks, setFormStokAks] = useState(10);
+  const [formStokMinAks, setFormStokMinAks] = useState(3);
+  const [formBeliAks, setFormBeliAks] = useState(25000);
+  const [formJualAks, setFormJualAks] = useState(50000);
+  const [sedangSimpanAks, setSedangSimpanAks] = useState(false);
+  const [sedangHapusAks, setSedangHapusAks] = useState(false);
+
+  const bukaTambahAks = () => {
+    setEditAksTarget(null);
+    setFormSkuAks('');
+    setFormNamaAks('');
+    setFormKatAks('Pelindung layar');
+    setFormStokAks(10);
+    setFormStokMinAks(3);
+    setFormBeliAks(25000);
+    setFormJualAks(50000);
+    setModalAks(true);
+  };
+
+  const bukaEditAks = (a: Aksesoris) => {
+    setEditAksTarget(a);
+    setFormSkuAks(a.sku);
+    setFormNamaAks(a.nama);
+    setFormKatAks(a.kategori || 'Pelindung layar');
+    setFormStokAks(a.stok);
+    setFormStokMinAks(a.stokMin || 3);
+    setFormBeliAks(a.hargaBeliRata2 || 0);
+    setFormJualAks(a.hargaJual || 0);
+    setModalAks(true);
+  };
+
+  const [alasanHapusAks, setAlasanHapusAks] = useState('');
+
+  const simpanAks = async () => {
+    if (!formNamaAks.trim()) {
+      alert('Nama aksesoris wajib diisi');
+      return;
+    }
+    setSedangSimpanAks(true);
+    try {
+      if (editAksTarget) {
+        if (p.onEditAksesoris) {
+          await p.onEditAksesoris(editAksTarget.sku, {
+            nama: formNamaAks.trim(),
+            kategori: formKatAks,
+            stok: Number(formStokAks) || 0,
+            stokMin: Number(formStokMinAks) || 0,
+            hargaBeliRata2: Number(formBeliAks) || 0,
+            hargaJual: Number(formJualAks) || 0,
+          });
+        }
+      } else {
+        if (p.onTambahAksesoris) {
+          await p.onTambahAksesoris({
+            sku: formSkuAks.trim() || undefined,
+            nama: formNamaAks.trim(),
+            kategori: formKatAks,
+            stok: Number(formStokAks) || 0,
+            stokMin: Number(formStokMinAks) || 0,
+            hargaBeliRata2: Number(formBeliAks) || 0,
+            hargaJual: Number(formJualAks) || 0,
+          });
+        }
+      }
+      setModalAks(false);
+    } catch (e: any) {
+      alert('Gagal menyimpan aksesoris: ' + (e?.message || e));
+    } finally {
+      setSedangSimpanAks(false);
+    }
+  };
+
+  const konfirmasiHapusAks = async () => {
+    if (!hapusAksTarget) return;
+    setSedangHapusAks(true);
+    try {
+      if (p.onHapusAksesoris) {
+        await p.onHapusAksesoris(hapusAksTarget.sku, alasanHapusAks || 'Dihapus dari aplikasi');
+      }
+      setHapusAksTarget(null);
+      setAlasanHapusAks('');
+    } catch (e: any) {
+      alert('Gagal menghapus aksesoris: ' + (e?.message || e));
+    } finally {
+      setSedangHapusAks(false);
+    }
+  };
 
   const uang = (n: number) => (priv ? MASK : rupiah(n));
 
@@ -120,7 +217,11 @@ export function StokScreen(p: Props) {
           <button type="button" role="tab" aria-selected={tabJenis === 'aksesoris'} class={tabJenis === 'aksesoris' ? 'aktif' : ''} onClick={() => setTabJenis('aksesoris')}>Aksesoris ({aksesoris.length})</button>
         </div>
         <div class="page-actions">
-          <button type="button" class="btn btn-primary" onClick={p.onBukaBarangMasuk}><IconPlus size={18} /> <span class="btn-label">Barang masuk</span></button>
+          {tabJenis === 'hp' ? (
+            <button type="button" class="btn btn-primary" onClick={p.onBukaBarangMasuk}><IconPlus size={18} /> <span class="btn-label">Barang masuk</span></button>
+          ) : (
+            <button type="button" class="btn btn-create" onClick={bukaTambahAks}><IconPlus size={18} /> <span class="btn-label">Tambah aksesoris</span></button>
+          )}
         </div>
       </div>
 
@@ -261,7 +362,7 @@ export function StokScreen(p: Props) {
           <div class="card" style={{ padding: 0 }}>
             <div class="table-scroll">
               <table class="data-table" data-density={density}>
-                <thead><tr><th>Aksesoris</th><th>Kategori</th><th class="num">Stok</th><th>Status</th><th class="num col-modal">Modal rata-rata</th><th class="num">Harga jual</th></tr></thead>
+                <thead><tr><th>Aksesoris</th><th>Kategori</th><th class="num">Stok</th><th>Status</th><th class="num col-modal">Modal rata-rata</th><th class="num">Harga jual</th><th style={{ width: 130 }}>Aksi</th></tr></thead>
                 <tbody>
                   {aksFilter.map(a => (
                     <tr key={a.sku}>
@@ -271,6 +372,12 @@ export function StokScreen(p: Props) {
                       <td><PillStatus status={a.status === 'Aman' ? 'Ready' : a.status === 'Menipis' ? 'Servis' : 'Dibatalkan'} label={a.status} /></td>
                       <td class="num col-modal">{uang(a.hargaBeliRata2)}</td>
                       <td class="num"><strong>{rupiah(a.hargaJual)}</strong></td>
+                      <td onClick={e => e.stopPropagation()}>
+                        <div class="row-actions">
+                          <button type="button" class="btn btn-edit btn-sm" onClick={() => bukaEditAks(a)}>Ubah</button>
+                          <button type="button" class="btn btn-danger-subtle btn-sm" onClick={() => setHapusAksTarget(a)}>Hapus</button>
+                        </div>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -287,6 +394,103 @@ export function StokScreen(p: Props) {
             <select id="f-plat" class="form-select" value={fPlatform} onChange={e => setFPlatform((e.target as HTMLSelectElement).value)}><option>Semua</option><option>iPhone</option><option>Android</option></select></div>
           <div class="form-group"><label class="form-label" for="f-grade">Grade</label>
             <select id="f-grade" class="form-select" value={fGrade} onChange={e => setFGrade((e.target as HTMLSelectElement).value)}><option>Semua</option><option>A</option><option>B</option><option>C</option></select></div>
+        </ModalShell>
+      )}
+
+      {modalAks && (
+        <ModalShell onClose={() => !sedangSimpanAks && setModalAks(false)}
+          title={editAksTarget ? 'Ubah data aksesoris' : 'Tambah aksesoris baru'}
+          subtitle={editAksTarget ? `SKU: ${editAksTarget.sku}` : 'Daftarkan aksesoris langsung ke master data'}
+          size="md"
+          footer={
+            <>
+              <button type="button" class="btn btn-secondary" onClick={() => setModalAks(false)} disabled={sedangSimpanAks}>Batal</button>
+              <button type="button" class="btn btn-primary" onClick={simpanAks} disabled={sedangSimpanAks}>
+                {sedangSimpanAks ? 'Menyimpan...' : editAksTarget ? 'Simpan perubahan' : 'Tambah aksesoris'}
+              </button>
+            </>
+          }
+        >
+          <div class="stack" style={{ gap: '14px' }}>
+            <div class="form-group">
+              <label class="form-label" for="form-aks-sku">SKU / Kode unik</label>
+              <input id="form-aks-sku" class="form-input" type="text" placeholder="Otomatis (contoh: AKS-0001)"
+                value={formSkuAks} onInput={e => setFormSkuAks((e.target as HTMLInputElement).value)}
+                disabled={Boolean(editAksTarget)} />
+              {editAksTarget && <span class="title-sub">SKU tidak dapat diubah setelah dibuat.</span>}
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="form-aks-nama">Nama aksesoris <span class="text-danger">*</span></label>
+              <input id="form-aks-nama" class="form-input" type="text" placeholder="Contoh: Tempered Glass iPhone 13"
+                value={formNamaAks} onInput={e => setFormNamaAks((e.target as HTMLInputElement).value)} required />
+            </div>
+            <div class="row" style={{ gap: '12px' }}>
+              <div class="form-group" style={{ flex: 1 }}>
+                <label class="form-label" for="form-aks-kat">Kategori</label>
+                <select id="form-aks-kat" class="form-select" value={formKatAks} onChange={e => setFormKatAks((e.target as HTMLSelectElement).value)}>
+                  <option value="Pelindung layar">Pelindung layar</option>
+                  <option value="Casing">Casing</option>
+                  <option value="Charger & kabel">Charger & kabel</option>
+                  <option value="Audio">Audio</option>
+                  <option value="Lainnya">Lainnya</option>
+                </select>
+              </div>
+              <div class="form-group" style={{ flex: 1 }}>
+                <label class="form-label" for="form-aks-min">Stok minimum</label>
+                <input id="form-aks-min" class="form-input" type="number" min="0"
+                  value={formStokMinAks} onInput={e => setFormStokMinAks(Number((e.target as HTMLInputElement).value) || 0)} />
+              </div>
+            </div>
+            <div class="row" style={{ gap: '12px' }}>
+              <div class="form-group" style={{ flex: 1 }}>
+                <label class="form-label" for="form-aks-stok">Jumlah stok saat ini</label>
+                <input id="form-aks-stok" class="form-input" type="number" min="0"
+                  value={formStokAks} onInput={e => setFormStokAks(Number((e.target as HTMLInputElement).value) || 0)} />
+              </div>
+              <div class="form-group" style={{ flex: 1 }}>
+                <label class="form-label" for="form-aks-beli">Modal rata-rata (Rp)</label>
+                <input id="form-aks-beli" class="form-input" type="number" min="0" step="1000"
+                  value={formBeliAks} onInput={e => setFormBeliAks(Number((e.target as HTMLInputElement).value) || 0)} />
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="form-aks-jual">Harga jual eceran (Rp) <span class="text-danger">*</span></label>
+              <input id="form-aks-jual" class="form-input" type="number" min="0" step="1000"
+                value={formJualAks} onInput={e => setFormJualAks(Number((e.target as HTMLInputElement).value) || 0)} />
+            </div>
+          </div>
+        </ModalShell>
+      )}
+
+      {hapusAksTarget && (
+        <ModalShell onClose={() => !sedangHapusAks && setHapusAksTarget(null)}
+          title="Hapus / Nonaktifkan aksesoris"
+          subtitle={hapusAksTarget.nama}
+          size="sm"
+          footer={
+            <>
+              <button type="button" class="btn btn-secondary" onClick={() => setHapusAksTarget(null)} disabled={sedangHapusAks}>Batal</button>
+              <button type="button" class="btn btn-danger" onClick={konfirmasiHapusAks} disabled={sedangHapusAks}>
+                {sedangHapusAks ? 'Menghapus...' : 'Ya, hapus aksesoris'}
+              </button>
+            </>
+          }
+        >
+          <div class="stack" style={{ gap: '14px' }}>
+            <p>
+              Apakah Anda yakin ingin menghapus aksesoris <strong>{hapusAksTarget.nama}</strong> ({hapusAksTarget.sku})?
+            </p>
+            {hapusAksTarget.stok > 0 && (
+              <div class="banner banner-danger">
+                Perhatian: Aksesoris ini masih memiliki sisa stok <strong>{hapusAksTarget.stok} pcs</strong>. Menghapus akan menonaktifkannya dari stok aktif.
+              </div>
+            )}
+            <div class="form-group">
+              <label class="form-label" for="alasan-hapus-aks">Alasan penghapusan (opsional)</label>
+              <input id="alasan-hapus-aks" class="form-input" type="text" placeholder="Contoh: Salah input data / tidak dijual lagi"
+                value={alasanHapusAks} onInput={e => setAlasanHapusAks((e.target as HTMLInputElement).value)} />
+            </div>
+          </div>
         </ModalShell>
       )}
     </div>

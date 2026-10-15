@@ -96,7 +96,7 @@ export function RiwayatScreen({ transaksiList = [], onBukaNota, onBukaBatal, onB
 
   const adaFilter = jenis !== 'Semua' || periode !== 'hari-ini' || query.trim() !== '';
   const reset = () => { setJenis('Semua'); setPeriode('hari-ini'); setQuery(''); };
-  const bisaBatal = (t: TransaksiItem) => t.status !== 'Dibatalkan' && t.tipe === 'Jual';
+  const bisaBatal = (t: TransaksiItem) => t.status !== 'Dibatalkan' && (t.tipe === 'Jual' || t.tipe === 'Beli');
 
   return (
     <div class="page">
@@ -171,7 +171,7 @@ export function RiwayatScreen({ transaksiList = [], onBukaNota, onBukaBatal, onB
       {terbuka && (
         <ModalShell onClose={() => setTerbuka(null)} title={terbuka.judul.replace(/^[A-Za-z]+\s·\s/, '')} subtitle={`${terbuka.id} · ${terbuka.tanggal}, ${terbuka.jam} WIB`} size="md"
           footer={<>
-            {bisaBatal(terbuka) && <button type="button" class="btn btn-ghost" style={{ marginRight: 'auto', color: 'var(--bad-fg)' }} onClick={() => { const t = terbuka; setTerbuka(null); setTimeout(() => onBukaBatal(t), 60); }}>Batalkan transaksi</button>}
+            {bisaBatal(terbuka) && <button type="button" class="btn btn-danger-subtle" style={{ marginRight: 'auto' }} onClick={() => { const t = terbuka; setTerbuka(null); setTimeout(() => onBukaBatal(t), 60); }}>Batalkan transaksi</button>}
             {terbuka.tipe === 'Jual' && terbuka.status !== 'Dibatalkan' && <button type="button" class="btn btn-primary" onClick={() => { const t = terbuka; setTerbuka(null); setTimeout(() => onBukaNota(t), 60); }}><IconReceipt size={16} /> Lihat nota</button>}
             {!(terbuka.tipe === 'Jual' && terbuka.status !== 'Dibatalkan') && <button type="button" class="btn btn-secondary" onClick={() => setTerbuka(null)}>Tutup</button>}
           </>}>

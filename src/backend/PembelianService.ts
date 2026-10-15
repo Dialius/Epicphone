@@ -302,3 +302,89 @@ export function simpanPembelian(data: PembelianInput): HasilPembelian {
     return { idPembelian, total, unitsCreated, servisCreated, aksesorisUpdated, idTagihan };
   }));
 }
+
+export interface HasilBatalPembelian {
+  idPembelian: string;
+  status: 'Batal';
+  unitDibatalkan: string[];
+}
+
+export function batalkanPembelian(idPembelian: string, alasan: string): HasilBatalPembelian {
+  return denganLock(() => Db.transaksi(() => {
+    const p = Db.findById(SHEET.PEMBELIAN, idPembelian);
+    if (!p) throw new GalatBisnis('PEMBELIAN_TIDAK_ADA', `Pembelian ${idPembelian} tidak ditemukan.`);
+    if (p.Status === 'Batal') throw new GalatBisnis('SUDAH_BATAL', `Pembelian ${idPembelian} sudah dibatalkan.`);
+    if (p.Status !== 'Aktif') throw new GalatBisnis('STATUS_TIDAK_VALID', `Pembelian ${idPembelian} berstatus ${String(p.Status)}, tidak bisa dibatalkan.`);
+
+    const items = (Db.getAll(SHEET.PEMBELIAN_ITEM) as Array<Record<string, unknown>>).filter(r => r.ID_Pembelian === idPembelian);
+    const unitDibatalkan: string[] = [];
+
+    // 1. Cek unit HP: jika ada yang sudah Terjual, tolak pembatalan
+    for (const it of items) {
+      if (it.Tipe === 'HP') {
+        const idUnit = String(it.ID_Unit_atau_SKU);
+        const u = Db.findById(SHEET.STOK_HP, idUnit) as unknown as UnitRow | null;
+        if (u) {
+          if (u.Status === STATUS_UNIT.TERJUAL) {
+            throw new GalatBisnis('UNIT_SUDAH_TERJUAL', `Unit ${u.Nama_Barang} (${idUnit}) sudah terjual, pembelian ${idPembelian} tidak bisa dibatalkan.`);
+          }
+          unitDibatalkan.push(idUnit);
+        }
+      }
+    }
+
+    // 2. Batalkan unit HP
+    for (const idUnit of unitDibatalkan) {
+      const u = Db.findById(SHEET.STOK_HP, idUnit);
+      const cat = [u?.Catatan, `[BATAL BELI: ${alasan}]`].filter(Boolean).join(' ');
+      Db.updateById(SHEET.STOK_HP, idUnit, { Status: STATUS_UNIT.BATAL, Catatan: cat });
+    }
+
+    // 3. Kembalikan stok aksesoris
+    for (const it of items) {
+      if (it.Tipe === 'Aksesoris') {
+        const sku = String(it.ID_Unit_atau_SKU);
+        const a = Db.findById(SHEET.STOK_AKSESORIS, sku) as unknown as AksesorisRow | null;
+        if (a) {
+          const qty = Math.round(angka(it.Qty));
+          const stokBaru = Math.max(0, angka(a.Stok) - qty);
+          Db.updateById(SHEET.STOK_AKSESORIS, sku, {
+            Stok: stokBaru,
+            Status: statusAksesoris(stokBaru, angka(a.Stok_Minimum)),
+          });
+        }
+      }
+    }
+
+    // 4. Batalkan hutang tempo bila ada
+    const tagihan = (Db.getAll(SHEET.HUTANG_PIUTANG) as Array<Record<string, unknown>>).find(h => h.ID_Referensi === idPembelian);
+    if (tagihan) {
+      Db.updateById(SHEET.HUTANG_PIUTANG, String(tagihan.ID_Tagihan), { Status: 'Batal', Sisa: 0 });
+    }
+
+    // 5. Pembalikan pembayaran awal bila ada uang kas keluar
+    const dibayar = angka(p.Dibayar);
+    if (dibayar > 0) {
+      const now = sekarang();
+      Db.append(SHEET.PEMBAYARAN, {
+        ID_Bayar: buatId(PREFIX_ID.PEMBAYARAN),
+        Tanggal: tglIso(now),
+        Jam: jamHm(now),
+        ID_Hutang_Piutang: tagihan ? String(tagihan.ID_Tagihan) : '',
+        Nama: String(p.Nama_Supplier || 'Supplier'),
+        Jumlah: -dibayar,
+        Metode: String(p.Metode_Bayar || 'Tunai'),
+        Catatan: `Pembalikan pembatalan ${idPembelian}`,
+        Link_Bukti: '',
+      });
+    }
+
+    // 6. Tandai status Pembelian jadi Batal
+    const catPembelian = [p.Catatan, `[BATAL: ${alasan}]`].filter(Boolean).join(' ');
+    Db.updateById(SHEET.PEMBELIAN, idPembelian, { Status: 'Batal', Catatan: catPembelian });
+    log('Batal', SHEET.PEMBELIAN, idPembelian, `Batalkan pembelian: ${alasan}`);
+
+    return { idPembelian, status: 'Batal', unitDibatalkan };
+  }));
+}
+

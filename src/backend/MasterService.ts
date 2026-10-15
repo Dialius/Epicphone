@@ -118,3 +118,45 @@ export function cariIdProduk(nama: string, jenis: 'HP' | 'Aksesoris' = 'HP'): st
   });
   return p ? String(p.ID_Produk) : '';
 }
+
+export function editKontak(idKontak: string, data: Partial<KontakInput>): { idKontak: string } {
+  return denganLock(() => Db.transaksi(() => {
+    const k = Db.findById(SHEET.KONTAK, idKontak);
+    if (!k) throw new GalatBisnis('KONTAK_TIDAK_ADA', `Kontak ${idKontak} tidak ditemukan.`);
+    const ubah: Record<string, unknown> = {};
+    if (data.nama !== undefined) {
+      const nama = sanitasi(String(data.nama).trim());
+      if (!nama) throw new GalatBisnis('NAMA_KOSONG', 'Nama kontak wajib diisi.');
+      ubah.Nama = nama;
+    }
+    if (data.tipe !== undefined) {
+      if (!['Pelanggan', 'Supplier', 'Keduanya'].includes(data.tipe)) {
+        throw new GalatBisnis('TIPE_TIDAK_VALID', 'Tipe kontak harus Pelanggan, Supplier, atau Keduanya.');
+      }
+      ubah.Tipe = data.tipe;
+    }
+    if (data.noWa !== undefined) {
+      const wa = normalisasiWA(data.noWa || '').replace(/\D/g, '');
+      if (wa && wa.length < 10) throw new GalatBisnis('WA_TIDAK_VALID', 'Nomor WhatsApp terlalu pendek.');
+      ubah.No_WA = wa;
+    }
+    if (data.alamat !== undefined) ubah.Alamat = sanitasi(data.alamat);
+    if (data.catatan !== undefined) ubah.Catatan = sanitasi(data.catatan);
+
+    Db.updateById(SHEET.KONTAK, idKontak, ubah);
+    log('Ubah', SHEET.KONTAK, idKontak, `Edit kontak ${ubah.Nama || k.Nama}`);
+    return { idKontak };
+  }));
+}
+
+export function hapusKontak(idKontak: string, alasan?: string): { idKontak: string; status: string } {
+  return denganLock(() => Db.transaksi(() => {
+    const k = Db.findById(SHEET.KONTAK, idKontak);
+    if (!k) throw new GalatBisnis('KONTAK_TIDAK_ADA', `Kontak ${idKontak} tidak ditemukan.`);
+    const catatan = [k.Catatan, `[NONAKTIF: ${alasan || 'Dihapus pengguna'}]`].filter(Boolean).join(' ');
+    Db.updateById(SHEET.KONTAK, idKontak, { Tipe: 'Nonaktif', Catatan: catatan });
+    log('Batal', SHEET.KONTAK, idKontak, `Hapus kontak ${k.Nama}`);
+    return { idKontak, status: 'Nonaktif' };
+  }));
+}
+

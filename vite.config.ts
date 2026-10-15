@@ -81,7 +81,7 @@ export default defineConfig({
   build: {
     outDir: '../../dist',
     emptyOutDir: true,
-    target: 'es2017',
+    target: 'es2020',
     modulePreload: { polyfill: false },
     assetsInlineLimit: 1000000,
   },

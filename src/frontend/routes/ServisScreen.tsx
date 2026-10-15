@@ -12,7 +12,7 @@ import { Banner, EmptyState } from '../components/ui/Kit';
 import { IconPlus, IconCheck, IconSearch, IconWrench, IconChevronRight } from '../components/Icons';
 
 type StatusServis = ServisItem['status'];
-type StatusTab = 'Semua' | StatusServis;
+type StatusTab = 'Semua' | 'Antri' | 'Dikerjakan' | 'Selesai' | 'Diambil';
 
 interface Props {
   servisList?: ServisItem[];
@@ -22,12 +22,14 @@ interface Props {
   /** Antri -> Dikerjakan, Selesai -> Diambil */
   onUbahStatus: (idServis: string, status: 'Dikerjakan' | 'Diambil') => void | boolean | Promise<boolean | void>;
   onTambahServis: (baru: ServisItem) => void | boolean | Promise<boolean | void>;
+  onEditServis?: (idServis: string, data: Partial<ServisItem>) => void | boolean | Promise<boolean | void>;
+  onBatalkanServis?: (idServis: string, alasan: string) => void | boolean | Promise<boolean | void>;
   /** unit stok yang dikirim ke servis dari halaman Stok: form langsung terbuka dan terisi */
   unitAwal?: UnitHP | null;
 }
 
 const TAB: StatusTab[] = ['Semua', 'Antri', 'Dikerjakan', 'Selesai', 'Diambil'];
-const kelasBadge = (s: StatusServis) => (s === 'Selesai' ? 'badge-ready' : s === 'Dikerjakan' ? 'badge-servis' : s === 'Diambil' ? 'badge-neutral' : 'badge-info');
+const kelasBadge = (s: StatusServis) => (s === 'Selesai' ? 'badge-ready' : s === 'Dikerjakan' ? 'badge-servis' : s === 'Diambil' ? 'badge-neutral' : s === 'Batal' ? 'badge-danger' : 'badge-info');
 
 /** Aksi berikutnya untuk satu servis (null = tidak ada aksi lagi) */
 function aksiBerikut(s: ServisItem): { kunci: 'mulai' | 'selesai' | 'serah'; label: string } | null {
@@ -37,7 +39,7 @@ function aksiBerikut(s: ServisItem): { kunci: 'mulai' | 'selesai' | 'serah'; lab
   return null;
 }
 
-export function ServisScreen({ servisList = [], stokHpList = [], onServisSelesai, onUbahStatus, onTambahServis, unitAwal }: Props) {
+export function ServisScreen({ servisList = [], stokHpList = [], onServisSelesai, onUbahStatus, onTambahServis, onEditServis, onBatalkanServis, unitAwal }: Props) {
   const id = useFieldId('sv');
   const [tab, setTab] = useState<StatusTab>('Semua');
   const [filterJenis, setFilterJenis] = useState<'Semua' | 'Internal' | 'Pelanggan'>('Semua');
@@ -46,6 +48,17 @@ export function ServisScreen({ servisList = [], stokHpList = [], onServisSelesai
   const [formBaru, setFormBaru] = useState(false);
   const [selesaiId, setSelesaiId] = useState<string | null>(null);
   const [proses, setProses] = useState<string | null>(null);
+
+  // ---- edit & batalkan servis ----
+  const [editServisTarget, setEditServisTarget] = useState<ServisItem | null>(null);
+  const [editKeluhan, setEditKeluhan] = useState('');
+  const [editEstimasi, setEditEstimasi] = useState('');
+  const [editTarif, setEditTarif] = useState('');
+  const [editTeknisi, setEditTeknisi] = useState('');
+  const [editCatatan, setEditCatatan] = useState('');
+
+  const [batalTarget, setBatalTarget] = useState<ServisItem | null>(null);
+  const [alasanBatal, setAlasanBatal] = useState('');
 
   // ---- form servis baru ----
   const [jenis, setJenis] = useState<'Internal' | 'Pelanggan'>('Internal');
@@ -87,7 +100,9 @@ export function ServisScreen({ servisList = [], stokHpList = [], onServisSelesai
 
   const jumlah = useMemo(() => {
     const j: Record<StatusTab, number> = { Semua: servisList.length, Antri: 0, Dikerjakan: 0, Selesai: 0, Diambil: 0 };
-    servisList.forEach(s => { j[s.status]++; });
+    servisList.forEach(s => {
+      if (s.status in j) (j as any)[s.status]++;
+    });
     return j;
   }, [servisList]);
 
@@ -154,6 +169,53 @@ export function ServisScreen({ servisList = [], stokHpList = [], onServisSelesai
     setSelesaiId(null);
   };
 
+  const bukaEdit = (s: ServisItem) => {
+    setEditServisTarget(s);
+    setEditKeluhan(s.keluhan);
+    setEditEstimasi(s.estimasiBiaya ? String(s.estimasiBiaya) : '');
+    setEditTarif(s.tarifPelanggan ? String(s.tarifPelanggan) : '');
+    setEditTeknisi(s.teknisi);
+    setEditCatatan(s.catatan || '');
+    setDetailId(null);
+  };
+
+  const simpanEdit = async (e?: Event) => {
+    e?.preventDefault();
+    if (!editServisTarget || menyimpan) return;
+    setMenyimpan(true);
+    try {
+      if (onEditServis) {
+        const hasil = await Promise.resolve(onEditServis(editServisTarget.id, {
+          keluhan: editKeluhan.trim(),
+          estimasiBiaya: duit(editEstimasi),
+          tarifPelanggan: duit(editTarif),
+          teknisi: editTeknisi.trim(),
+          catatan: editCatatan.trim(),
+        }));
+        if (hasil === false) return;
+      }
+      setEditServisTarget(null);
+    } finally {
+      setMenyimpan(false);
+    }
+  };
+
+  const konfirmasiBatal = async () => {
+    if (!batalTarget || menyimpan) return;
+    setMenyimpan(true);
+    try {
+      if (onBatalkanServis) {
+        const hasil = await Promise.resolve(onBatalkanServis(batalTarget.id, alasanBatal || 'Dibatalkan oleh pengguna'));
+        if (hasil === false) return;
+      }
+      setBatalTarget(null);
+      setDetailId(null);
+      setAlasanBatal('');
+    } finally {
+      setMenyimpan(false);
+    }
+  };
+
   const adaFilter = tab !== 'Semua' || filterJenis !== 'Semua' || query.trim() !== '';
 
   return (
@@ -165,7 +227,7 @@ export function ServisScreen({ servisList = [], stokHpList = [], onServisSelesai
           ))}
         </div>
         <div class="page-actions">
-          <button type="button" class="btn btn-primary" onClick={bukaForm}><IconPlus size={18} /> <span class="btn-label">Servis baru</span></button>
+          <button type="button" class="btn btn-create" onClick={bukaForm}><IconPlus size={18} /> <span class="btn-label">Servis baru</span></button>
         </div>
       </div>
 
@@ -223,6 +285,12 @@ export function ServisScreen({ servisList = [], stokHpList = [], onServisSelesai
         return (
           <ModalShell onClose={() => setDetailId(null)} title={detail.namaPerangkat} subtitle={`${detail.id} · ${detail.jenis === 'Internal' ? 'Unit stok toko' : `Pelanggan ${detail.namaPelanggan}`}`} size="md"
             footer={<>
+              <div class="row" style={{ gap: '8px', marginRight: 'auto' }}>
+                <button type="button" class="btn btn-edit btn-sm" onClick={() => bukaEdit(detail)}>Ubah tiket</button>
+                {detail.status !== 'Diambil' && detail.status !== 'Batal' && (
+                  <button type="button" class="btn btn-danger-subtle btn-sm" onClick={() => { setBatalTarget(detail); setDetailId(null); }}>Batalkan servis</button>
+                )}
+              </div>
               <button type="button" class="btn btn-secondary" onClick={() => setDetailId(null)}>Tutup</button>
               {aksi && <button type="button" class="btn btn-primary" disabled={proses === detail.id} onClick={() => { void jalankanAksi(detail, aksi.kunci); }}>{aksi.kunci === 'selesai' ? <IconCheck size={18} /> : null}{aksi.label}</button>}
             </>}>
@@ -330,6 +398,64 @@ export function ServisScreen({ servisList = [], stokHpList = [], onServisSelesai
               {selesaiItem.jenis === 'Pelanggan' && selesaiItem.tarifPelanggan > 0 && <div class="title-sub" style={{ color: 'inherit' }}>Tarif pelanggan {rupiah(selesaiItem.tarifPelanggan)}, laba {rupiah(selesaiItem.tarifPelanggan - duit(biayaPart) - duit(biayaJasa))}.</div>}
             </Banner>
           </form>
+        </ModalShell>
+      )}
+
+      {/* Ubah tiket servis */}
+      {editServisTarget && (
+        <ModalShell onClose={() => !menyimpan && setEditServisTarget(null)} title="Ubah data tiket servis" subtitle={editServisTarget.namaPerangkat} size="md"
+          footer={<>
+            <button type="button" class="btn btn-ghost" onClick={() => setEditServisTarget(null)} disabled={menyimpan}>Batal</button>
+            <button type="button" class="btn btn-primary" onClick={simpanEdit} disabled={menyimpan}>{menyimpan ? <span class="spinner" /> : null} Simpan perubahan</button>
+          </>}>
+          <div class="form-stack">
+            <Field id={`${id}-edit-kel`} label="Keluhan atau kerusakan" wajib>
+              <textarea id={`${id}-edit-kel`} class="form-input" rows={3} value={editKeluhan} onInput={e => setEditKeluhan((e.target as HTMLTextAreaElement).value)} />
+            </Field>
+            <div class="form-grid2 stack-sm">
+              <Field id={`${id}-edit-est`} label="Estimasi biaya modal">
+                <MoneyInput id={`${id}-edit-est`} value={editEstimasi} onChange={setEditEstimasi} />
+              </Field>
+              {editServisTarget.jenis === 'Pelanggan' && (
+                <Field id={`${id}-edit-tarif`} label="Tarif ke pelanggan">
+                  <MoneyInput id={`${id}-edit-tarif`} value={editTarif} onChange={setEditTarif} />
+                </Field>
+              )}
+            </div>
+            <Field id={`${id}-edit-tek`} label="Teknisi / Vendor">
+              <input id={`${id}-edit-tek`} class="form-input" value={editTeknisi} onInput={e => setEditTeknisi((e.target as HTMLInputElement).value)} />
+            </Field>
+            <Field id={`${id}-edit-cat`} label="Catatan tambahan">
+              <input id={`${id}-edit-cat`} class="form-input" value={editCatatan} onInput={e => setEditCatatan((e.target as HTMLInputElement).value)} />
+            </Field>
+          </div>
+        </ModalShell>
+      )}
+
+      {/* Batalkan servis */}
+      {batalTarget && (
+        <ModalShell onClose={() => !menyimpan && setBatalTarget(null)} title="Batalkan tiket servis" subtitle={`${batalTarget.id} · ${batalTarget.namaPerangkat}`} size="sm"
+          footer={<>
+            <button type="button" class="btn btn-secondary" onClick={() => setBatalTarget(null)} disabled={menyimpan}>Kembali</button>
+            <button type="button" class="btn btn-danger" onClick={konfirmasiBatal} disabled={menyimpan}>{menyimpan ? 'Membatalkan...' : 'Ya, batalkan servis'}</button>
+          </>}>
+          <div class="stack" style={{ gap: '14px' }}>
+            <p>Apakah Anda yakin ingin membatalkan servis untuk <strong>{batalTarget.namaPerangkat}</strong>?</p>
+            {batalTarget.jenis === 'Internal' ? (
+              <div class="banner banner-neutral">
+                Unit HP akan dikembalikan ke status <strong>Ready</strong> di stok tanpa penambahan biaya servis.
+              </div>
+            ) : (
+              <div class="banner banner-neutral">
+                Status servis unit pelanggan akan ditandai <strong>Batal</strong>.
+              </div>
+            )}
+            <div class="form-group">
+              <label class="form-label" for="alasan-batal-servis">Alasan pembatalan (opsional)</label>
+              <input id="alasan-batal-servis" class="form-input" type="text" placeholder="Contoh: Sparepart kosong / dibatalkan pemilik"
+                value={alasanBatal} onInput={e => setAlasanBatal((e.target as HTMLInputElement).value)} />
+            </div>
+          </div>
         </ModalShell>
       )}
     </div>

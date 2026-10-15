@@ -1,6 +1,6 @@
 // nota.ts — membangun DataNota dari transaksi nyata (bukan teks karangan).
-import { TransaksiItem } from '../mock/data-contoh';
-import { DataNota } from '../components/NotaModal';
+import type { TransaksiItem } from '../mock/data-contoh';
+import type { DataNota } from '../components/NotaModal';
 import { parseTgl, tglWib } from './format';
 
 export const GARANSI_HARI_DEFAULT = 7;

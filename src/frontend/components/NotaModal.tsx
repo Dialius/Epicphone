@@ -53,7 +53,7 @@ export interface PdfNota {
 }
 
 /** Identitas toko pada nota (dari Pengaturan; contoh pada mode demo) */
-export interface TokoNota { nama: string; tagline: string; alamat: string; wa: string; instagram: string; syarat: string }
+export interface TokoNota { nama: string; tagline: string; alamat: string; wa: string; instagram: string; syarat: string; logoUrl?: string }
 
 export const TOKO_DEMO: TokoNota = {
   nama: 'Epic Phone Purwokerto', tagline: 'Inovasi Ada Di Genggaman', alamat: 'Jl. Prof HR Boenyamin No. 7 Purwokerto', wa: '0812-3456-7890', instagram: '@epicphone_purwokerto',

@@ -32,8 +32,13 @@ export function BatalkanTransaksiModal({ onClose, transaksi, onKonfirmasiBatal }
     if (unit) dampak.push(`Unit ${unit.nama} kembali berstatus Ready dan bisa dijual lagi.`);
     if ((t.sisa || 0) > 0) dampak.push(`Piutang ${rupiah(t.sisa || 0)} ikut dibatalkan dan hilang dari daftar Tagihan.`);
     if ((t.dibayar || 0) > 0) dampak.push(`Uang masuk ${rupiah(t.dibayar || 0)} dikoreksi dari kas. Kembalikan uang ke pelanggan bila sudah dibayar.`);
+  } else if (t.tipe === 'Beli') {
+    dampak.push('Semua unit HP dari pembelian ini akan ditarik/dibatalkan dari stok (hanya bisa jika belum terjual).');
+    dampak.push('Stok aksesoris yang dibeli akan dikurangi kembali.');
+    if ((t.sisa || 0) > 0) dampak.push(`Hutang ke supplier sebesar ${rupiah(t.sisa || 0)} dibatalkan.`);
+    if ((t.dibayar || 0) > 0) dampak.push(`Pengeluaran kas sebesar ${rupiah(t.dibayar || 0)} akan dikoreksi balik.`);
   }
-  dampak.push('Nota tetap tercatat di Riwayat dengan status Batal dan alasan yang Anda isi.');
+  dampak.push('Nota tetap tercatat di Riwayat dengan status Dibatalkan dan alasan yang Anda isi.');
 
   const konfirmasi = () => {
     setCoba(true);

@@ -68,9 +68,20 @@ export async function bangunFrontend() {
     const berkas = path.join(sementara, 'index.html');
     if (!fs.existsSync(berkas)) throw new Error('Vite tidak menghasilkan index.html');
     let html = fs.readFileSync(berkas, 'utf8');
-    html = html.replace(/<style[^>]*>([\s\S]*?)<\/style>/gi, (_, css) =>
-      `<style>${css.replace(/\/\*[\s\S]*?\*\//g, '').replace(/;\}/g, '}')}</style>`
-    );
+    html = html.replace(/<!--[\s\S]*?-->/g, '');
+    html = html.replace(/>\s+</g, '><');
+    html = html.replace(/<style\b[^>]*>([\s\S]*?)<\/style>/gi, (m, css) => {
+      if (css.includes('${')) return m;
+      const min = css
+        .replace(/\/\*[\s\S]*?\*\//g, '')
+        .replace(/\s+/g, ' ')
+        .replace(/\s*([{}:;,>~+])\s*/g, '$1')
+        .replace(/;}/g, '}')
+        .replace(/(?<=[:\s,(])0px/g, '0')
+        .replace(/rgba\(([0-9]+),\s*([0-9]+),\s*([0-9]+),\s*0\.([0-9]+)\)/g, 'rgba($1,$2,$3,.$4)')
+        .trim();
+      return `<style>${min}</style>`;
+    });
     return html;
   } finally {
     if (nodeEnvLama === undefined) delete process.env.NODE_ENV; else process.env.NODE_ENV = nodeEnvLama;

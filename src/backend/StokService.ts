@@ -1,9 +1,11 @@
 // StokService.ts — Manajemen stok unit HP dan stok aksesoris
 
-import { SHEET, STATUS_UNIT } from './Config';
+import { SHEET, STATUS_UNIT, PREFIX_ID } from './Config';
 import { Db } from './Db';
 import { GalatBisnis } from './Galat';
-import { angka, selisihHariIso, tglIso, sekarang } from './Utils';
+import { denganLock } from './Lock';
+import { buatId } from './Id';
+import { angka, selisihHariIso, tglIso, sekarang, sanitasi } from './Utils';
 import { log } from './Log';
 
 export interface FilterStok {
@@ -196,4 +198,110 @@ export function hitungUlangModalUnit(idUnit: string): { hppLama: number; hppBaru
   const hppBaru = angka(u.Harga_Beli) + angka(u.Biaya_Lain) + biaya;
   Db.updateById(SHEET.STOK_HP, idUnit, { Biaya_Servis: biaya, Estimasi_Servis: estimasi, HPP: hppBaru });
   return { hppLama: angka(u.HPP), hppBaru, biayaServis: biaya, estimasi };
+}
+
+// ── CRUD Unit HP & Aksesoris ──────────────────────────────────────────────────
+
+export interface UnitEditInput {
+  hargaJualTarget?: number;
+  kondisi?: 'Baru' | 'Bekas';
+  grade?: string;
+  kelengkapan?: string;
+  bateraiPersen?: number;
+  bebasKunciAkun?: string;
+  catatan?: string;
+}
+
+export function editUnit(idUnit: string, data: UnitEditInput): UnitRow {
+  return denganLock(() => Db.transaksi(() => {
+    const u = wajibUnit(idUnit);
+    if (u.Status === STATUS_UNIT.BATAL) throw new GalatBisnis('UNIT_BATAL', 'Unit yang sudah dibatalkan tidak bisa diubah.');
+    const ubah: Record<string, unknown> = {};
+    if (data.hargaJualTarget !== undefined) ubah.Harga_Jual_Target = Math.max(0, Math.round(angka(data.hargaJualTarget)));
+    if (data.kondisi !== undefined) ubah.Kondisi = data.kondisi === 'Baru' ? 'Baru' : 'Bekas';
+    if (data.grade !== undefined) ubah.Grade = sanitasi(data.grade);
+    if (data.kelengkapan !== undefined) ubah.Kelengkapan = sanitasi(data.kelengkapan);
+    if (data.bateraiPersen !== undefined) ubah.Baterai_Persen = data.bateraiPersen ? Math.max(0, Math.min(100, Math.round(angka(data.bateraiPersen)))) : '';
+    if (data.bebasKunciAkun !== undefined) ubah.Bebas_Kunci_Akun = sanitasi(data.bebasKunciAkun);
+    if (data.catatan !== undefined) ubah.Catatan = sanitasi(data.catatan);
+
+    Db.updateById(SHEET.STOK_HP, idUnit, ubah);
+    log('Ubah', SHEET.STOK_HP, idUnit, `Edit data unit ${u.Nama_Barang}`);
+    return { ...u, ...ubah } as UnitRow;
+  }));
+}
+
+export function hapusUnit(idUnit: string, alasan: string): { idUnit: string; status: string } {
+  return denganLock(() => Db.transaksi(() => {
+    const u = wajibUnit(idUnit);
+    if (u.Status === STATUS_UNIT.TERJUAL) throw new GalatBisnis('UNIT_TERJUAL', 'Unit yang sudah terjual tidak bisa dihapus.');
+    if (u.Status === STATUS_UNIT.BATAL) throw new GalatBisnis('SUDAH_BATAL', 'Unit sudah dibatalkan sebelumnya.');
+    const ket = sanitasi(alasan || 'Salah input stok');
+    const catatanBaru = [u.Catatan, `[BATAL: ${ket}]`].filter(Boolean).join(' ');
+    Db.updateById(SHEET.STOK_HP, idUnit, { Status: STATUS_UNIT.BATAL, Catatan: catatanBaru });
+    log('Batal', SHEET.STOK_HP, idUnit, `Hapus unit: ${ket}`);
+    return { idUnit, status: STATUS_UNIT.BATAL };
+  }));
+}
+
+export interface AksesorisInput {
+  namaBarang: string;
+  kategori?: string;
+  stok?: number;
+  stokMinimum?: number;
+  hargaBeliRata2?: number;
+  hargaJual?: number;
+  sku?: string;
+}
+
+export function simpanAksesoris(data: AksesorisInput): AksesorisRow {
+  return denganLock(() => Db.transaksi(() => {
+    const nama = sanitasi(data.namaBarang || '').trim();
+    if (!nama) throw new GalatBisnis('NAMA_KOSONG', 'Nama aksesoris wajib diisi.');
+    const sku = data.sku || buatId(PREFIX_ID.AKSESORIS);
+    const stok = Math.max(0, Math.round(angka(data.stok)));
+    const stokMin = Math.max(0, Math.round(angka(data.stokMinimum ?? 3)));
+    const beli = Math.max(0, Math.round(angka(data.hargaBeliRata2)));
+    const jual = Math.max(0, Math.round(angka(data.hargaJual)));
+    const kat = sanitasi(data.kategori || 'Lainnya');
+    const status = statusAksesoris(stok, stokMin);
+
+    Db.append(SHEET.STOK_AKSESORIS, {
+      SKU: sku, Nama_Barang: nama, Kategori: kat, Stok: stok, Stok_Minimum: stokMin,
+      Harga_Beli_Rata2: beli, Harga_Jual: jual, Status: status,
+    });
+    log('Tambah', SHEET.STOK_AKSESORIS, sku, `Tambah aksesoris ${nama}`);
+    return { SKU: sku, Nama_Barang: nama, Kategori: kat, Stok: stok, Stok_Minimum: stokMin, Harga_Beli_Rata2: beli, Harga_Jual: jual, Status: status };
+  }));
+}
+
+export function editAksesoris(sku: string, data: Partial<AksesorisInput>): AksesorisRow {
+  return denganLock(() => Db.transaksi(() => {
+    const a = Db.findById(SHEET.STOK_AKSESORIS, sku) as unknown as AksesorisRow | null;
+    if (!a) throw new GalatBisnis('AKSESORIS_TIDAK_ADA', `Aksesoris ${sku} tidak ditemukan.`);
+    const ubah: Record<string, unknown> = {};
+    if (data.namaBarang !== undefined) ubah.Nama_Barang = sanitasi(data.namaBarang);
+    if (data.kategori !== undefined) ubah.Kategori = sanitasi(data.kategori);
+    const stok = data.stok !== undefined ? Math.max(0, Math.round(angka(data.stok))) : angka(a.Stok);
+    const stokMin = data.stokMinimum !== undefined ? Math.max(0, Math.round(angka(data.stokMinimum))) : angka(a.Stok_Minimum);
+    ubah.Stok = stok;
+    ubah.Stok_Minimum = stokMin;
+    ubah.Status = statusAksesoris(stok, stokMin);
+    if (data.hargaBeliRata2 !== undefined) ubah.Harga_Beli_Rata2 = Math.max(0, Math.round(angka(data.hargaBeliRata2)));
+    if (data.hargaJual !== undefined) ubah.Harga_Jual = Math.max(0, Math.round(angka(data.hargaJual)));
+
+    Db.updateById(SHEET.STOK_AKSESORIS, sku, ubah);
+    log('Ubah', SHEET.STOK_AKSESORIS, sku, `Edit aksesoris ${a.Nama_Barang}`);
+    return { ...a, ...ubah } as AksesorisRow;
+  }));
+}
+
+export function hapusAksesoris(sku: string, alasan?: string): { sku: string; status: string } {
+  return denganLock(() => Db.transaksi(() => {
+    const a = Db.findById(SHEET.STOK_AKSESORIS, sku) as unknown as AksesorisRow | null;
+    if (!a) throw new GalatBisnis('AKSESORIS_TIDAK_ADA', `Aksesoris ${sku} tidak ditemukan.`);
+    Db.updateById(SHEET.STOK_AKSESORIS, sku, { Status: 'Batal', Stok: 0 });
+    log('Batal', SHEET.STOK_AKSESORIS, sku, `Hapus aksesoris: ${alasan || 'Dihapus pengguna'}`);
+    return { sku, status: 'Batal' };
+  }));
 }

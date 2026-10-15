@@ -9,20 +9,31 @@ import { IDEM_TTL_S, SHEET } from './Config';
 import { GalatBisnis } from './Galat';
 import { denganLock } from './Lock';
 import { tglId, jamId } from './Utils';
-import { cariStok as _cariStok, getUnit as _getUnit, FilterStok } from './StokService';
-import { simpanPembelian as _simpanPembelian, PembelianInput } from './PembelianService';
+import {
+  cariStok as _cariStok, getUnit as _getUnit, FilterStok,
+  editUnit as _editUnit, hapusUnit as _hapusUnit,
+  simpanAksesoris as _simpanAksesoris, editAksesoris as _editAksesoris, hapusAksesoris as _hapusAksesoris,
+  UnitEditInput, AksesorisInput,
+} from './StokService';
+import { simpanPembelian as _simpanPembelian, batalkanPembelian as _batalkanPembelian, PembelianInput } from './PembelianService';
 import { simpanPenjualan as _simpanPenjualan, batalkanTransaksi as _batalkanTransaksi, PenjualanInput } from './PenjualanService';
 import { terimaPembayaran as _terimaPembayaran } from './TagihanService';
 import { unggahFoto as _unggahFoto, hapusFoto as _hapusFoto, UnggahFotoInput } from './FotoService';
 import { getSemuaData as _getSemuaData } from './DataService';
-import { simpanKontak as _simpanKontak, simpanProduk as _simpanProduk, KontakInput, ProdukInput } from './MasterService';
+import {
+  simpanKontak as _simpanKontak, editKontak as _editKontak, hapusKontak as _hapusKontak,
+  simpanProduk as _simpanProduk, KontakInput, ProdukInput,
+} from './MasterService';
 import {
   jalankanBackupHarian, jalankanBackupBulanan, jalankanBackupMingguan, jalankanCekTagihan, jalankanBersihkan,
   jalankanBackupPraRilis, daftarBackupTersedia, jalankanPemulihan,
 } from './Jobs';
-import { simpanServis as _simpanServis, kirimKeServis as _kirimKeServis, updateStatusServis as _updateStatusServis, ServisInput, SelesaiServisInput } from './ServisService';
+import {
+  simpanServis as _simpanServis, kirimKeServis as _kirimKeServis, updateStatusServis as _updateStatusServis,
+  editServis as _editServis, batalkanServis as _batalkanServis, ServisInput, SelesaiServisInput,
+} from './ServisService';
 import { cekGaransi as _cekGaransi, simpanKlaim as _simpanKlaim, updateStatusKlaim as _updateStatusKlaim, KlaimInput } from './GaransiService';
-import { simpanBiaya as _simpanBiaya, BiayaInput } from './BiayaService';
+import { simpanBiaya as _simpanBiaya, editBiaya as _editBiaya, hapusBiaya as _hapusBiaya, BiayaInput } from './BiayaService';
 import { buatNota as _buatNota, ambilNota as _ambilNota, terapkanTautanNota } from './Nota';
 import { getLaporanBulanan as _getLaporanBulanan, getLaporanLayar as _getLaporanLayar, buatLaporanPdf as _buatLaporanPdf, kunciBulan as _kunciBulan, jalankanLaporanBulanan } from './Laporan';
 import { daftarFoto, JenisReferensi } from './FotoService';
@@ -93,12 +104,30 @@ function tulis<T>(idemKey: string | undefined, fn: () => T): Respons<T> {
 // ── doGet ─────────────────────────────────────────────────────────────────────
 
 export function doGet(): GoogleAppsScript.HTML.HtmlOutput {
-  const out = HtmlService.createHtmlOutputFromFile('Index')
-    .setTitle('Epic Phone')
-    .addMetaTag('viewport', 'width=device-width, initial-scale=1, viewport-fit=cover');
-  // Ikon tab browser = logo Epic Phone. Tag <link rel=icon> di dalam halaman diabaikan oleh Apps Script
-  // (halaman tampil di iframe), jadi harus lewat setFaviconUrl. Kegagalan di sini tidak boleh merusak aplikasi.
-  try { out.setFaviconUrl(FAVICON_DATA_URI); } catch { /* tanpa ikon khusus */ }
+  const out = HtmlService.createHtmlOutputFromFile('Index');
+  if (typeof out.setTitle === 'function') out.setTitle('Epic Phone');
+  if (HtmlService.XFrameOptionsMode && typeof out.setXFrameOptionsMode === 'function') {
+    out.setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+  }
+  if (typeof out.addMetaTag === 'function') {
+    out.addMetaTag('viewport', 'width=device-width, initial-scale=1, viewport-fit=cover');
+  }
+  // Ikon tab browser = logo Epic Phone.
+  // Apps Script setFaviconUrl membutuhkan URL HTTPS publik dari Google Drive / CDN.
+  try {
+    const set = Db.getAll(SHEET.PENGATURAN) as Array<Record<string, unknown>>;
+    const row = set.find(p => String(p.Kunci || '') === 'ID_BERKAS_LOGO');
+    const idLogo = row ? String(row.Nilai || '').trim() : '';
+    if (typeof out.setFaviconUrl === 'function') {
+      if (idLogo && !idLogo.startsWith('(')) {
+        out.setFaviconUrl(`https://lh3.googleusercontent.com/d/${idLogo}`);
+      } else {
+        out.setFaviconUrl(FAVICON_DATA_URI);
+      }
+    }
+  } catch {
+    /* tanpa ikon khusus */
+  }
   return out;
 }
 
@@ -184,6 +213,9 @@ export function simpanPenjualan(dataInput: PenjualanInput, idemKey?: string): Re
 }
 
 export function batalkanTransaksi(idTransaksi: string, alasan: string, catatan?: string, idemKey?: string): Respons {
+  if (String(idTransaksi || '').startsWith('BELI-')) {
+    return tulis(idemKey, () => _batalkanPembelian(idTransaksi, alasan));
+  }
   return tulis(idemKey, () => _batalkanTransaksi(idTransaksi, alasan, catatan || ''));
 }
 
@@ -197,14 +229,56 @@ export function simpanKontak(dataInput: KontakInput, idemKey?: string): Respons 
   return tulis(idemKey, () => _simpanKontak(dataInput));
 }
 
+export function editKontak(idKontak: string, dataInput: Partial<KontakInput>, idemKey?: string): Respons {
+  return tulis(idemKey, () => _editKontak(idKontak, dataInput));
+}
+
+export function hapusKontak(idKontak: string, alasan?: string, idemKey?: string): Respons {
+  return tulis(idemKey, () => _hapusKontak(idKontak, alasan));
+}
+
 export function simpanProduk(dataInput: ProdukInput, idemKey?: string): Respons {
   return tulis(idemKey, () => _simpanProduk(dataInput));
+}
+
+// ── CRUD Unit HP & Aksesoris ──────────────────────────────────────────────────
+
+export function editUnit(idUnit: string, dataInput: UnitEditInput, idemKey?: string): Respons {
+  return tulis(idemKey, () => _editUnit(idUnit, dataInput));
+}
+
+export function hapusUnit(idUnit: string, alasan: string, idemKey?: string): Respons {
+  return tulis(idemKey, () => _hapusUnit(idUnit, alasan));
+}
+
+export function simpanAksesoris(dataInput: AksesorisInput, idemKey?: string): Respons {
+  return tulis(idemKey, () => _simpanAksesoris(dataInput));
+}
+
+export function editAksesoris(sku: string, dataInput: Partial<AksesorisInput>, idemKey?: string): Respons {
+  return tulis(idemKey, () => _editAksesoris(sku, dataInput));
+}
+
+export function hapusAksesoris(sku: string, alasan?: string, idemKey?: string): Respons {
+  return tulis(idemKey, () => _hapusAksesoris(sku, alasan));
+}
+
+export function batalkanPembelian(idPembelian: string, alasan: string, idemKey?: string): Respons {
+  return tulis(idemKey, () => _batalkanPembelian(idPembelian, alasan));
 }
 
 // ── Servis, garansi, biaya, nota, laporan ─────────────────────────────────────
 
 export function simpanServis(dataInput: ServisInput, idemKey?: string): Respons {
   return tulis(idemKey, () => _simpanServis(dataInput));
+}
+
+export function editServis(idServis: string, dataInput: { keluhan?: string; tindakan?: string; estimasiBiaya?: number; pelaksana?: string; namaVendor?: string; perangkat?: string }, idemKey?: string): Respons {
+  return tulis(idemKey, () => _editServis(idServis, dataInput));
+}
+
+export function batalkanServis(idServis: string, alasan: string, idemKey?: string): Respons {
+  return tulis(idemKey, () => _batalkanServis(idServis, alasan));
 }
 
 export function kirimKeServis(idUnit: string, dataInput: { keluhan: string; estimasiBiaya?: number; pelaksana?: 'Teknisi sendiri' | 'Vendor luar'; namaVendor?: string }, idemKey?: string): Respons {
@@ -234,6 +308,14 @@ export function updateStatusKlaim(idKlaim: string, status: string, idemKey?: str
 
 export function simpanBiaya(dataInput: BiayaInput, idemKey?: string): Respons {
   return tulis(idemKey, () => _simpanBiaya(dataInput));
+}
+
+export function editBiaya(idBiaya: string, dataInput: Partial<BiayaInput>, idemKey?: string): Respons {
+  return tulis(idemKey, () => _editBiaya(idBiaya, dataInput));
+}
+
+export function hapusBiaya(idBiaya: string, alasan?: string, idemKey?: string): Respons {
+  return tulis(idemKey, () => _hapusBiaya(idBiaya, alasan));
 }
 
 /** Buat (atau buat ulang) nota PDF. Gagal membuat nota tidak membatalkan penjualan: tampil tombol Buat Ulang Nota. */

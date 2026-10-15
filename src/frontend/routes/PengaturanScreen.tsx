@@ -3,6 +3,7 @@
 
 import { useEffect, useState } from 'preact/hooks';
 import type { Aksesoris } from '../mock/data-contoh';
+import { LOGO_DATA_URI } from '../lib/logo';
 import { IconShield, IconDatabase, IconAlertTriangle, IconPlus, IconClose } from '../components/Icons';
 import { ModalShell } from '../components/ModalShell';
 import { Field } from '../components/ui/Form';
@@ -191,6 +192,7 @@ export function PengaturanScreen({
   const [alamat, setAlamat] = useState(P.ALAMAT ?? '');
   const [noWa, setNoWa] = useState(P.NO_WA ?? '');
   const [ig, setIg] = useState(P.INSTAGRAM ?? '');
+  const [idBerkasLogo, setIdBerkasLogo] = useState(P.ID_BERKAS_LOGO ?? '');
   const [menyimpan, setMenyimpan] = useState(false);
 
   // S41 Garansi & Nota State
@@ -215,7 +217,7 @@ export function PengaturanScreen({
   useEffect(() => {
     if (!pengaturan || sinkron) return;
     setNamaToko(pengaturan.NAMA_TOKO ?? ''); setTagline(pengaturan.TAGLINE ?? ''); setAlamat(pengaturan.ALAMAT ?? ''); setNoWa(pengaturan.NO_WA ?? '');
-    setIg(pengaturan.INSTAGRAM ?? ''); setGaransiBaru(pengaturan.GARANSI_BARU_BULAN ?? '12'); setGaransiBekas(pengaturan.GARANSI_BEKAS_HARI ?? '7');
+    setIg(pengaturan.INSTAGRAM ?? ''); setIdBerkasLogo(pengaturan.ID_BERKAS_LOGO ?? ''); setGaransiBaru(pengaturan.GARANSI_BARU_BULAN ?? '12'); setGaransiBekas(pengaturan.GARANSI_BEKAS_HARI ?? '7');
     setGaransiAcc(pengaturan.GARANSI_AKSESORIS_HARI ?? '3'); setUkuranNota(pengaturan.NOTA_UKURAN === '80mm' ? '80mm' : 'A5');
     setSyaratGaransi(pengaturan.SYARAT_GARANSI ?? ''); setAmbangUmurStok(pengaturan.BATAS_UMUR_STOK_HARI ?? '30');
     setAmbangStokMin(pengaturan.STOK_MINIMUM_DEFAULT ?? '3'); setAmbangTempo(pengaturan.AMBANG_TEMPO_HARI ?? '3');
@@ -254,9 +256,18 @@ export function PengaturanScreen({
     onShowToast(ok ? pesan : 'Pengaturan belum tersimpan. Periksa koneksi lalu coba lagi.', ok ? 'success' : 'error');
   };
 
+  const cleanLogoId = idBerkasLogo.match(/\/d\/([a-zA-Z0-9_-]+)/)?.[1] || idBerkasLogo.match(/id=([a-zA-Z0-9_-]+)/)?.[1] || idBerkasLogo.trim();
+
   const handleSimpanProfil = (e: Event) => {
     e.preventDefault();
-    void simpanKe({ NAMA_TOKO: namaToko.trim(), TAGLINE: tagline.trim(), ALAMAT: alamat.trim(), NO_WA: noWa.trim(), INSTAGRAM: ig.trim() }, 'Profil toko berhasil disimpan!');
+    void simpanKe({
+      NAMA_TOKO: namaToko.trim(),
+      TAGLINE: tagline.trim(),
+      ALAMAT: alamat.trim(),
+      NO_WA: noWa.trim(),
+      INSTAGRAM: ig.trim(),
+      ID_BERKAS_LOGO: cleanLogoId,
+    }, 'Profil toko dan logo berhasil disimpan!');
   };
 
   const handleBackupSekarang = async () => {
@@ -401,6 +412,33 @@ export function PengaturanScreen({
                     value={ig}
                     onInput={e => setIg((e.target as HTMLInputElement).value)}
                   />
+                </div>
+              </div>
+
+              <div>
+                <label class="form-label" htmlFor="input-logo-drive">ID Berkas / Tautan Google Drive Logo Toko</label>
+                <input
+                  id="input-logo-drive"
+                  type="text"
+                  class="form-input"
+                  placeholder="Contoh: 1a2B3c4D5e... atau https://drive.google.com/file/d/.../view"
+                  value={idBerkasLogo}
+                  onInput={e => setIdBerkasLogo((e.target as HTMLInputElement).value)}
+                />
+                <p class="form-hint mt-1">
+                  Masukkan File ID atau tautan Drive. Pastikan akses diatur ke <em>"Siapa saja yang memiliki link"</em>.
+                </p>
+                <div class="row mt-2" style={{ gap: '12px' }}>
+                  <img
+                    src={cleanLogoId ? `https://lh3.googleusercontent.com/d/${cleanLogoId}` : LOGO_DATA_URI}
+                    alt="Pratinjau Logo"
+                    class="avatar-lg"
+                    style={{ objectFit: 'contain', background: 'var(--bg-surface)' }}
+                    onError={(e) => { (e.target as HTMLImageElement).src = LOGO_DATA_URI; }}
+                  />
+                  <span class="title-sub">
+                    {cleanLogoId ? 'Logo dari Google Drive' : 'Logo bawaan Epic Phone'}
+                  </span>
                 </div>
               </div>
 

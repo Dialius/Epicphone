@@ -170,3 +170,28 @@ export function updateStatusServis(idServis: string, status: string, opsi: Seles
     return hasil;
   }));
 }
+
+export function editServis(idServis: string, data: { keluhan?: string; tindakan?: string; estimasiBiaya?: number; pelaksana?: string; namaVendor?: string; perangkat?: string }): { idServis: string } {
+  return denganLock(() => Db.transaksi(() => {
+    const s = Db.findById(SHEET.SERVIS, idServis);
+    if (!s) throw new GalatBisnis('SERVIS_TIDAK_ADA', `Servis ${idServis} tidak ditemukan.`);
+    const ubah: Record<string, unknown> = {};
+    if (data.keluhan !== undefined) ubah.Keluhan = sanitasi(data.keluhan);
+    if (data.tindakan !== undefined) ubah.Tindakan = sanitasi(data.tindakan);
+    if (data.perangkat !== undefined) ubah.Perangkat = sanitasi(data.perangkat);
+    if (data.pelaksana !== undefined) ubah.Pelaksana = sanitasi(data.pelaksana);
+    if (data.namaVendor !== undefined) ubah.Nama_Vendor = sanitasi(data.namaVendor);
+    if (data.estimasiBiaya !== undefined) ubah.Estimasi_Biaya = Math.max(0, Math.round(angka(data.estimasiBiaya)));
+
+    Db.updateById(SHEET.SERVIS, idServis, ubah);
+    log('Ubah', SHEET.SERVIS, idServis, `Edit tiket servis ${idServis}`);
+    return { idServis };
+  }));
+}
+
+export function batalkanServis(idServis: string, alasan?: string): HasilStatusServis {
+  const hasil = updateStatusServis(idServis, 'Batal', { unitJadi: 'Ready' });
+  if (alasan) log('Batal', SHEET.SERVIS, idServis, `Batal servis ${idServis}: ${sanitasi(alasan)}`);
+  return hasil;
+}
+

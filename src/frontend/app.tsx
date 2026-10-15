@@ -3,8 +3,8 @@
 // tema/privasi/kepadatan tersimpan, dan setiap aksi mengubah data yang sama dengan yang tampil di layar.
 
 import { useState, useEffect, useRef, useMemo, useCallback } from 'preact/hooks';
-import { LOGO_DATA_URI } from './lib/logo';
-import { IconHome, IconBox, IconPlus, IconClock, IconWrench, IconShield, IconSearch, IconBell, IconEye, IconEyeOff, IconMenu, IconSettings, IconInvoice, IconBanknote, IconChart, IconUsers, IconTag, IconSidebar, IconSun, IconMoon, IconClose } from './components/Icons';
+import { LOGO_DATA_URI, ambilUrlLogo } from './lib/logo';
+import { IconHome, IconBox, IconPlus, IconClock, IconWrench, IconShield, IconSearch, IconBell, IconEye, IconEyeOff, IconMenu, IconSettings, IconInvoice, IconBanknote, IconChart, IconUsers, IconTag, IconSidebar, IconSun, IconMoon, IconClose, IconRefresh } from './components/Icons';
 
 import { BerandaScreen } from './routes/BerandaScreen';
 import { StokScreen } from './routes/StokScreen';
@@ -188,13 +188,30 @@ export function App() {
     return d;
   }, [isDemo]);
   useEffect(() => { muatSemua(); }, []);
-  // perangkat lain (HP/laptop) bisa mengubah data: segarkan saat aplikasi kembali ditampilkan
+  // Auto-refresh: perangkat lain (HP/laptop) bisa mengubah data. Segarkan saat aktif kembali atau polling periodik 45s.
   useEffect(() => {
     if (isDemo) return;
-    const h = () => { if (document.visibilityState === 'visible' && Date.now() - terakhirMuat.current > 60_000) muatSemua(); };
+    const h = () => { if (document.visibilityState === 'visible' && Date.now() - terakhirMuat.current > 30_000) muatSemua(); };
     document.addEventListener('visibilitychange', h);
-    return () => document.removeEventListener('visibilitychange', h);
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible' && Date.now() - terakhirMuat.current > 45_000) {
+        void muatSemua();
+      }
+    }, 45_000);
+    return () => {
+      document.removeEventListener('visibilitychange', h);
+      clearInterval(interval);
+    };
   }, [isDemo, muatSemua]);
+
+  // Ikon tab browser otomatis mengikuti logo Google Drive dari pengaturan
+  useEffect(() => {
+    if (pengaturanServer?.ID_BERKAS_LOGO) {
+      const fav = ambilUrlLogo(pengaturanServer.ID_BERKAS_LOGO);
+      const link = document.querySelector<HTMLLinkElement>("link[rel*='icon']");
+      if (link) link.href = fav;
+    }
+  }, [pengaturanServer?.ID_BERKAS_LOGO]);
 
   // ---- pintasan keyboard ----
   const refToggle = useRef({ privasi: () => {} });
@@ -557,9 +574,12 @@ export function App() {
     if (t.tipe === 'Jual') {
       setStokList(l => l.map(u => u.notaJualId === id ? { ...u, status: 'Ready', notaJualId: undefined } : u));
       setTagihanList(l => l.filter(x => x.refId !== id));
+    } else if (t.tipe === 'Beli') {
+      setStokList(l => l.filter(u => !u.id.includes(id)));
+      setTagihanList(l => l.filter(x => x.refId !== id));
     }
     setBatalTransaksiTarget(null);
-    toast({ tipe: 'warning', judul: `${id} dibatalkan`, desk: t.tipe === 'Jual' ? 'Unit kembali Ready dan piutang terkait dihapus dari Tagihan.' : alasan });
+    toast({ tipe: 'warning', judul: `${id} dibatalkan`, desk: t.tipe === 'Jual' ? 'Unit kembali Ready dan piutang terkait dihapus dari Tagihan.' : 'Pembelian dibatalkan, unit ditarik dan kewajiban disesuaikan.' });
   };
 
   const handleBatalTransaksi = async (id: string, alasan: string, catatan: string) => {
@@ -575,7 +595,245 @@ export function App() {
       setBatalTransaksiTarget(null);
       await muatSemua();
       if (id.startsWith('JUAL-')) void apiCall('buatNota', id); // nota berwatermark DIBATALKAN
-      toast({ tipe: 'warning', judul: `${id} dibatalkan`, desk: 'Unit kembali Ready dan piutang terkait dibatalkan.' });
+      toast({ tipe: 'warning', judul: `${id} dibatalkan`, desk: id.startsWith('JUAL-') ? 'Unit kembali Ready dan piutang terkait dibatalkan.' : 'Pembelian dibatalkan, unit ditarik dan kewajiban disesuaikan.' });
+    } finally {
+      sedangProses.current = false;
+    }
+  };
+
+  const handleEditUnit = async (idUnit: string, data: any) => {
+    if (isDemo) {
+      setStokList(l => l.map(u => u.id === idUnit ? { ...u, ...data } : u));
+      setInspectedUnit(prev => prev && prev.id === idUnit ? { ...prev, ...data } : prev);
+      toast({ judul: `Data unit ${idUnit} diperbarui` });
+      return;
+    }
+    if (sedangProses.current) return;
+    sedangProses.current = true;
+    try {
+      const res = await apiCall('editUnit', idUnit, data, buatIdemKey());
+      if (!res.ok) {
+        toast({ tipe: 'error', judul: 'Gagal mengubah unit', desk: res.pesan, durasi: 8000 });
+        return;
+      }
+      toast({ judul: `Unit ${idUnit} diperbarui` });
+      await muatSemua();
+      setInspectedUnit(prev => prev && prev.id === idUnit ? { ...prev, ...data } : prev);
+    } finally {
+      sedangProses.current = false;
+    }
+  };
+
+  const handleHapusUnit = async (idUnit: string, alasan: string) => {
+    if (isDemo) {
+      setStokList(l => l.filter(u => u.id !== idUnit));
+      setInspectedUnit(null);
+      toast({ tipe: 'warning', judul: `Unit ${idUnit} dibatalkan dari stok` });
+      return;
+    }
+    if (sedangProses.current) return;
+    sedangProses.current = true;
+    try {
+      const res = await apiCall('hapusUnit', idUnit, alasan, buatIdemKey());
+      if (!res.ok) {
+        toast({ tipe: 'error', judul: 'Gagal membatalkan unit', desk: res.pesan, durasi: 8000 });
+        return;
+      }
+      setInspectedUnit(null);
+      toast({ tipe: 'warning', judul: `Unit ${idUnit} dibatalkan dari stok` });
+      void muatSemua();
+    } finally {
+      sedangProses.current = false;
+    }
+  };
+
+  const handleTambahAksesoris = async (data: any) => {
+    if (isDemo) {
+      const sku = data.sku || `AKS-${String(aksesorisList.length + 1).padStart(4, '0')}`;
+      setAksesorisList(l => [...l, { ...data, sku, status: 'Aman' }]);
+      toast({ judul: `Aksesoris ${data.nama} ditambahkan` });
+      return;
+    }
+    if (sedangProses.current) return;
+    sedangProses.current = true;
+    try {
+      const res = await apiCall('simpanAksesoris', data, buatIdemKey());
+      if (!res.ok) {
+        toast({ tipe: 'error', judul: 'Gagal menambah aksesoris', desk: res.pesan, durasi: 8000 });
+        return;
+      }
+      toast({ judul: `Aksesoris ${data.nama} ditambahkan` });
+      void muatSemua();
+    } finally {
+      sedangProses.current = false;
+    }
+  };
+
+  const handleEditAksesoris = async (sku: string, data: any) => {
+    if (isDemo) {
+      setAksesorisList(l => l.map(a => a.sku === sku ? { ...a, ...data } : a));
+      toast({ judul: `Aksesoris ${sku} diperbarui` });
+      return;
+    }
+    if (sedangProses.current) return;
+    sedangProses.current = true;
+    try {
+      const res = await apiCall('editAksesoris', sku, data, buatIdemKey());
+      if (!res.ok) {
+        toast({ tipe: 'error', judul: 'Gagal mengubah aksesoris', desk: res.pesan, durasi: 8000 });
+        return;
+      }
+      toast({ judul: `Aksesoris ${sku} diperbarui` });
+      void muatSemua();
+    } finally {
+      sedangProses.current = false;
+    }
+  };
+
+  const handleHapusAksesoris = async (sku: string, alasan?: string) => {
+    if (isDemo) {
+      setAksesorisList(l => l.filter(a => a.sku !== sku));
+      toast({ tipe: 'warning', judul: `Aksesoris ${sku} dinonaktifkan` });
+      return;
+    }
+    if (sedangProses.current) return;
+    sedangProses.current = true;
+    try {
+      const res = await apiCall('hapusAksesoris', sku, alasan, buatIdemKey());
+      if (!res.ok) {
+        toast({ tipe: 'error', judul: 'Gagal menghapus aksesoris', desk: res.pesan, durasi: 8000 });
+        return;
+      }
+      toast({ tipe: 'warning', judul: `Aksesoris ${sku} dinonaktifkan` });
+      void muatSemua();
+    } finally {
+      sedangProses.current = false;
+    }
+  };
+
+  const handleEditKontak = async (id: string, data: any) => {
+    if (isDemo) {
+      setKontakList(l => l.map(k => k.id === id ? { ...k, ...data } : k));
+      toast({ judul: `Kontak diperbarui` });
+      return;
+    }
+    if (sedangProses.current) return;
+    sedangProses.current = true;
+    try {
+      const res = await apiCall('editKontak', id, data, buatIdemKey());
+      if (!res.ok) {
+        toast({ tipe: 'error', judul: 'Gagal mengubah kontak', desk: res.pesan, durasi: 8000 });
+        return;
+      }
+      toast({ judul: `Kontak diperbarui` });
+      void muatSemua();
+    } finally {
+      sedangProses.current = false;
+    }
+  };
+
+  const handleHapusKontak = async (id: string, alasan?: string) => {
+    if (isDemo) {
+      setKontakList(l => l.filter(k => k.id !== id));
+      toast({ tipe: 'warning', judul: `Kontak dinonaktifkan` });
+      return;
+    }
+    if (sedangProses.current) return;
+    sedangProses.current = true;
+    try {
+      const res = await apiCall('hapusKontak', id, alasan, buatIdemKey());
+      if (!res.ok) {
+        toast({ tipe: 'error', judul: 'Gagal menghapus kontak', desk: res.pesan, durasi: 8000 });
+        return;
+      }
+      toast({ tipe: 'warning', judul: `Kontak dinonaktifkan` });
+      void muatSemua();
+    } finally {
+      sedangProses.current = false;
+    }
+  };
+
+  const handleEditBiaya = async (id: string, data: any) => {
+    if (isDemo) {
+      setBiayaList(l => l.map(b => b.id === id ? { ...b, ...data } : b));
+      toast({ judul: `Biaya diperbarui` });
+      return;
+    }
+    if (sedangProses.current) return;
+    sedangProses.current = true;
+    try {
+      const res = await apiCall('editBiaya', id, data, buatIdemKey());
+      if (!res.ok) {
+        toast({ tipe: 'error', judul: 'Gagal mengubah biaya', desk: res.pesan, durasi: 8000 });
+        return;
+      }
+      toast({ judul: `Biaya diperbarui` });
+      void muatSemua();
+    } finally {
+      sedangProses.current = false;
+    }
+  };
+
+  const handleHapusBiaya = async (id: string, alasan?: string) => {
+    if (isDemo) {
+      setBiayaList(l => l.filter(b => b.id !== id));
+      toast({ tipe: 'warning', judul: `Biaya dibatalkan` });
+      return;
+    }
+    if (sedangProses.current) return;
+    sedangProses.current = true;
+    try {
+      const res = await apiCall('hapusBiaya', id, alasan, buatIdemKey());
+      if (!res.ok) {
+        toast({ tipe: 'error', judul: 'Gagal menghapus biaya', desk: res.pesan, durasi: 8000 });
+        return;
+      }
+      toast({ tipe: 'warning', judul: `Biaya dibatalkan` });
+      void muatSemua();
+    } finally {
+      sedangProses.current = false;
+    }
+  };
+
+  const handleEditServis = async (idServis: string, data: any) => {
+    if (isDemo) {
+      setServisList(l => l.map(s => s.id === idServis ? { ...s, ...data } : s));
+      toast({ judul: `Tiket servis diperbarui` });
+      return;
+    }
+    if (sedangProses.current) return;
+    sedangProses.current = true;
+    try {
+      const res = await apiCall('editServis', idServis, data, buatIdemKey());
+      if (!res.ok) {
+        toast({ tipe: 'error', judul: 'Gagal mengubah tiket servis', desk: res.pesan, durasi: 8000 });
+        return;
+      }
+      toast({ judul: `Tiket servis diperbarui` });
+      void muatSemua();
+    } finally {
+      sedangProses.current = false;
+    }
+  };
+
+  const handleBatalkanServis = async (idServis: string, alasan: string) => {
+    if (isDemo) {
+      const s = servisList.find(x => x.id === idServis);
+      setServisList(l => l.map(x => x.id === idServis ? { ...x, status: 'Batal' as any } : x));
+      if (s?.unitHpId) setStokList(l => l.map(u => u.id === s.unitHpId ? { ...u, status: 'Ready' } : u));
+      toast({ tipe: 'warning', judul: `Servis ${idServis} dibatalkan` });
+      return;
+    }
+    if (sedangProses.current) return;
+    sedangProses.current = true;
+    try {
+      const res = await apiCall('batalkanServis', idServis, alasan, buatIdemKey());
+      if (!res.ok) {
+        toast({ tipe: 'error', judul: 'Gagal membatalkan servis', desk: res.pesan, durasi: 8000 });
+        return;
+      }
+      toast({ tipe: 'warning', judul: `Servis ${idServis} dibatalkan` });
+      void muatSemua();
     } finally {
       sedangProses.current = false;
     }
@@ -783,6 +1041,8 @@ export function App() {
     muatBackup: async () => { const r = await apiCall<InfoBackupUI[]>('getDaftarBackup'); return r.ok && r.data ? r.data : []; },
   };
 
+  const logoSrc = ambilUrlLogo(pengaturanServer?.ID_BERKAS_LOGO);
+
   /** Identitas toko pada nota: murni dari sheet Pengaturan database */
   const tokoNota: TokoNota = {
     nama: pengaturanServer?.NAMA_TOKO || 'Epic Phone Purwokerto',
@@ -791,6 +1051,7 @@ export function App() {
     wa: pengaturanServer?.NO_WA || '',
     instagram: pengaturanServer?.INSTAGRAM || '',
     syarat: pengaturanServer?.SYARAT_GARANSI || 'Garansi berlaku sesuai ketentuan nota.',
+    logoUrl: logoSrc,
   };
 
   const fotoServer = isDemo ? undefined : {
@@ -857,7 +1118,7 @@ export function App() {
             title={ciut ? 'Besarkan menu samping (Ctrl+B)' : undefined}
             onKeyDown={ciut ? e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setCiut(false); } } : undefined}
           >
-            <img src={LOGO_DATA_URI} alt="Epic Phone" />
+            <img src={logoSrc} alt="Epic Phone" onError={e => { (e.target as HTMLImageElement).src = LOGO_DATA_URI; }} />
             <div class="sidebar-brand-text"><span class="sidebar-brand-title">EPIC PHONE</span><span class="sidebar-brand-sub">PURWOKERTO</span></div>
           </div>
           <button type="button" class="icon-btn sidebar-toggle" onClick={() => setCiut(!ciut)} aria-label={ciut ? 'Besarkan menu samping (Ctrl+B)' : 'Kecilkan menu samping (Ctrl+B)'} aria-expanded={!ciut} title={ciut ? 'Besarkan menu samping (Ctrl+B)' : 'Kecilkan menu samping (Ctrl+B)'}>
@@ -903,13 +1164,16 @@ export function App() {
 
       <div class="shell-col">
         <header class="topbar">
-          <div class="topbar-brand"><img src={LOGO_DATA_URI} alt="Epic Phone" /></div>
+          <div class="topbar-brand"><img src={logoSrc} alt="Epic Phone" onError={e => { (e.target as HTMLImageElement).src = LOGO_DATA_URI; }} /></div>
           <h1 class="topbar-title">{JUDUL[tab]}</h1>
           <button type="button" class="omnibox" onClick={() => setIsPencarianOpen(true)} aria-label="Cari model, IMEI, nota, atau pelanggan">
             <IconSearch size={18} /><span>Cari model, IMEI, nota, pelanggan</span><kbd>/</kbd>
           </button>
           <div class="topbar-actions">
             <span class={`privacy-pill ${isPrivacyMode ? 'on' : ''}`}>Angka disembunyikan</span>
+            <button type="button" class="icon-btn" onClick={() => { void muatSemua(); toast({ tipe: 'info', judul: 'Menyegarkan data dari database...', durasi: 2000 }); }} title="Segarkan data dari database" aria-label="Segarkan data">
+              <IconRefresh size={18} />
+            </button>
             <button type="button" class="icon-btn phone-search" onClick={() => setIsPencarianOpen(true)} aria-label="Cari"><IconSearch size={20} /></button>
             <button type="button" class="icon-btn" onClick={() => setTema(isDark ? 'terang' : 'gelap')} aria-label={isDark ? 'Ganti ke tema terang' : 'Ganti ke tema gelap'} title={isDark ? 'Tema terang' : 'Tema gelap'}>
               {isDark ? <IconSun size={20} /> : <IconMoon size={20} />}
@@ -976,6 +1240,9 @@ export function App() {
               onKirimKeServis={handleKirimKeServis}
               onBukaDetailUnit={u => setInspectedUnit(u)}
               onCekGaransi={handleCekGaransi}
+              onTambahAksesoris={handleTambahAksesoris}
+              onEditAksesoris={handleEditAksesoris}
+              onHapusAksesoris={handleHapusAksesoris}
               isPrivacyMode={isPrivacyMode}
               density={density}
               onToggleDensity={() => setDensity(density === 'nyaman' ? 'padat' : 'nyaman')}
@@ -1000,6 +1267,8 @@ export function App() {
               onServisSelesai={handleServisSelesai}
               onUbahStatus={ubahStatusServis}
               onTambahServis={tambahServis}
+              onEditServis={handleEditServis}
+              onBatalkanServis={handleBatalkanServis}
             />
           )}
           {tab === 'garansi' && (
@@ -1032,11 +1301,20 @@ export function App() {
               onUnduhPdf={isDemo ? undefined : unduhLaporanPdf}
             />
           )}
-          {tab === 'biaya' && <BiayaScreen biayaList={biayaList} onTambahBiaya={tambahBiaya} />}
+          {tab === 'biaya' && (
+            <BiayaScreen
+              biayaList={biayaList}
+              onTambahBiaya={tambahBiaya}
+              onEditBiaya={handleEditBiaya}
+              onHapusBiaya={handleHapusBiaya}
+            />
+          )}
           {tab === 'kontak' && (
             <KontakScreen
               kontakList={kontakList}
               onTambahKontak={tambahKontak}
+              onEditKontak={handleEditKontak}
+              onHapusKontak={handleHapusKontak}
               onBukaRiwayatTransaksi={nama => { setFilterRiwayat(nama); go('riwayat'); }}
             />
           )}
@@ -1115,6 +1393,8 @@ export function App() {
           onKirimKeServis={u => { setInspectedUnit(null); handleKirimKeServis(u); }}
           onBukaFoto={u => setFotoUnitTarget(u)}
           onLihatNota={id => { const t = transaksiList.find(x => x.id === id); if (t) { setInspectedUnit(null); setTimeout(() => bukaNotaTransaksi(t), 60); } }}
+          onEditUnit={handleEditUnit}
+          onHapusUnit={handleHapusUnit}
           isPrivacyMode={isPrivacyMode}
         />
       )}

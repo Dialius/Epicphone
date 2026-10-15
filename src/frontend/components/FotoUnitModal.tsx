@@ -4,7 +4,7 @@ import { useOverlay } from '../lib/overlay';
 // Grid of 96px position tiles, camera/gallery upload simulator, & full-screen photo viewer with mono file name
 
 import { useEffect, useRef, useState } from 'preact/hooks';
-import { UnitHP, fotoContoh } from '../mock/data-contoh';
+import type { UnitHP } from '../mock/data-contoh';
 import { FotoServer } from '../lib/api';
 import { FotoKompresi, kompresFoto } from '../lib/foto';
 import { IconClose, IconCamera, IconTrash, IconCopy, IconCheck } from './Icons';
@@ -120,14 +120,15 @@ export function FotoUnitModal({ isOpen, onClose, unit, onSimpanFoto, server }: P
 
   const handleSimulasiUpload = (pos: string) => {
     // Generate high quality sample camera photo
+    const fotoUrl = (id: string) => `https://images.unsplash.com/${id}?w=600&auto=format&fit=crop&q=80`;
     const sampleUrls: Record<string, string> = {
-      'DEPAN': fotoContoh('photo-1610945415295-d9bbf067e59c'),
-      'BELAKANG': fotoContoh('photo-1592750475338-74b7b21085ab'),
-      'LAYAR-MENYALA': fotoContoh('photo-1511707171634-5f897ff02aa9'),
-      'SAMPING': fotoContoh('photo-1565849904461-04a58ad377e0'),
-      'IMEI': fotoContoh('photo-1580910051074-3eb694886505'),
-      'BATERAI': fotoContoh('photo-1584438784894-089d6a62b8fa'),
-      'DUS': fotoContoh('photo-1546868871-7041f2a55e12'),
+      'DEPAN': fotoUrl('photo-1610945415295-d9bbf067e59c'),
+      'BELAKANG': fotoUrl('photo-1592750475338-74b7b21085ab'),
+      'LAYAR-MENYALA': fotoUrl('photo-1511707171634-5f897ff02aa9'),
+      'SAMPING': fotoUrl('photo-1565849904461-04a58ad377e0'),
+      'IMEI': fotoUrl('photo-1580910051074-3eb694886505'),
+      'BATERAI': fotoUrl('photo-1584438784894-089d6a62b8fa'),
+      'DUS': fotoUrl('photo-1546868871-7041f2a55e12'),
     };
 
     const newMap = { ...fotoMap, [pos]: sampleUrls[pos] || sampleUrls['DEPAN'] };

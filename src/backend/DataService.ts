@@ -148,7 +148,9 @@ export function getSemuaData(): SemuaData {
     });
 
   // ── Aksesoris ──────────────────────────────────────────────────────────────
-  const aksesoris = aksRows.map(a => ({
+  const aksesoris = aksRows
+    .filter(a => a.Status !== 'Batal')
+    .map(a => ({
     sku: teks(a.SKU),
     nama: teks(a.Nama_Barang),
     kategori: teks(a.Kategori) || 'Lainnya',
@@ -203,13 +205,16 @@ export function getSemuaData(): SemuaData {
   }
 
   for (const p of pembelian) {
-    if (p.Status !== 'Aktif') continue;
+    if (p.Status !== 'Aktif' && p.Status !== 'Batal') continue;
     const id = teks(p.ID_Pembelian);
     const items = pembItem[id] || [];
     const sisa = angka(p.Sisa);
     const hp = items.find(i => i.Tipe === 'HP');
     const imei = hp ? imeiByUnit[teks(hp.ID_Unit_atau_SKU)] || '' : '';
     const tagihan = (hutangByRef[id] || [])[0];
+    const batal = p.Status === 'Batal';
+    const catatan = teks(p.Catatan);
+    const idxBatal = catatan.indexOf('BATAL: ');
     transaksi.push({
       sortKey: `${teks(p.Tanggal)} ${teks(p.Jam)} ${id}`,
       id,
@@ -220,11 +225,12 @@ export function getSemuaData(): SemuaData {
       subjudul: hp ? `${teks(hp.ID_Unit_atau_SKU)} • IMEI ...${imei.slice(-4)}` : id,
       pihak: teks(p.Nama_Supplier),
       nominal: angka(p.Total),
-      status: sisa > 0 ? 'Sebagian' : 'Lunas',
+      status: batal ? 'Dibatalkan' : sisa > 0 ? 'Sebagian' : 'Lunas',
       items: items.map(i => ({ nama: teks(i.Nama_Barang), qty: angka(i.Qty), harga: angka(i.Harga_Satuan), imei: i.Tipe === 'HP' ? opsional(imeiByUnit[teks(i.ID_Unit_atau_SKU)]) : undefined })),
       dibayar: angka(p.Dibayar),
       sisa,
       jatuhTempo: tagihan ? tglId(tagihan.Jatuh_Tempo) : undefined,
+      catatanBatal: batal && idxBatal >= 0 ? catatan.slice(idxBatal + 7) : undefined,
       metode: teks(p.Metode_Bayar),
     });
   }
@@ -316,7 +322,9 @@ export function getSemuaData(): SemuaData {
   const jumlahTransaksi: Record<string, number> = {};
   penjualan.filter(p => p.Status === 'Aktif').forEach(p => { jumlahTransaksi[teks(p.ID_Pelanggan)] = (jumlahTransaksi[teks(p.ID_Pelanggan)] || 0) + 1; });
   pembelian.filter(p => p.Status === 'Aktif').forEach(p => { jumlahTransaksi[teks(p.ID_Supplier)] = (jumlahTransaksi[teks(p.ID_Supplier)] || 0) + 1; });
-  const kontak = kontakRows.map(k => ({
+  const kontak = kontakRows
+    .filter(k => k.Tipe !== 'Nonaktif')
+    .map(k => ({
     id: teks(k.ID_Kontak),
     nama: teks(k.Nama),
     tipe: teks(k.Tipe) || 'Pelanggan',
@@ -370,7 +378,9 @@ export function getSemuaData(): SemuaData {
       unitPengganti: opsional(k.Unit_Pengganti), dampakLaba: angka(k.Dampak_Laba),
     };
   });
-  const biaya = biayaRows.map(b => ({ id: teks(b.ID_Biaya), tanggal: tglId(b.Tanggal), kategori: teks(b.Kategori), nominal: angka(b.Nominal), keterangan: teks(b.Catatan) }))
+  const biaya = biayaRows
+    .filter(b => b.Status !== 'Batal' && !String(b.Catatan || '').startsWith('[BATAL'))
+    .map(b => ({ id: teks(b.ID_Biaya), tanggal: tglId(b.Tanggal), kategori: teks(b.Kategori), nominal: angka(b.Nominal), keterangan: teks(b.Catatan) }))
     .reverse();
 
   return {

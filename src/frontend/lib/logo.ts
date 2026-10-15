@@ -1,2 +1,13 @@
 // Logo 64x64 WebP
 export const LOGO_DATA_URI = "data:image/webp;base64,UklGRjgCAABXRUJQVlA4ICwCAADwDACdASpAAEAAPrVQn0wnJKKiKBgNUOAWiWcAzrd8XIsRgyOf8lwgygeBekCxNeqN/Vfr553Pp72BP1m6sHoqojeX9sEQXAIuuLCE/a1wfyHaFSSloYBmQeG1P+WzPB7JBUSONgJ2fClwi9hZHIwkAP75hgU3iiWjXO98q9GTW7138Rqjqac4h8Xj5XKTc05CWjPAuxJS6wYn037JBYgpGip95FT3HB9NJUnzArONTzFdc7PXYsEgpZIYrGrnd6gVQ4i3kAAvFp+q+qZugznJIT545olEjjTNdXrnVzVta6Ge/9ENDzitxd7G5UOcEtMlXMdBKL0BpPKSE8F8Ao7nUmFydwb09+7rzf6VOfDrOpZr6FI9I6uQhqu+NhqAbl/lVey/4HIWnW/u3bT/316G3dNZKNvNZ/LvaOJI+aH9xOW/GjfD6ICnZiz8K8t6fM7DiRTmf9BFROfoKPuHY3Cn19jx+1DvYgmmtnL8Xi17jM/l4Q7WdOtg1LI7W+3ebxBhLbXvXkCCUhOgUvqJzwwhJp5S1Bz1nd23c05MKhLNb/CIhG2FU8xowyv/Zm6+P/J16dilaBnW9KCsHWwbPHi12z4NiX4iYr2yxThRm0Ik+JVWY1Y5cz+rCc3XfpWScE6l5g2+bdx/BkyoS7Nb1q6GKXP3AFoKI/OjcxlT30eJft3nZtAWe+HfZTK/+aGeBUQvoc4MU88Fsie/vJdjSsnwrtC1za2+LY3fAAAA";
+export function ambilUrlLogo(idAtauUrl?: string | null): string {
+  if (!idAtauUrl) return LOGO_DATA_URI;
+  const str = idAtauUrl.trim();
+  if (!str) return LOGO_DATA_URI;
+  if (str.startsWith('data:') || (str.startsWith('http') && !str.includes('drive.google.com'))) {
+    return str;
+  }
+  const idMatch = str.match(/\/d\/([a-zA-Z0-9_-]+)/) || str.match(/id=([a-zA-Z0-9_-]+)/);
+  const fileId = idMatch ? idMatch[1] : str;
+  return `https://lh3.googleusercontent.com/d/${fileId}`;
+}

@@ -15,6 +15,8 @@ interface Props {
   onKirimKeServis: (u: UnitHP) => void;
   onBukaFoto: (u: UnitHP) => void;
   onLihatNota?: (notaId: string) => void;
+  onEditUnit?: (idUnit: string, data: any) => Promise<boolean | void> | void;
+  onHapusUnit?: (idUnit: string, alasan: string) => Promise<boolean | void> | void;
   isPrivacyMode: boolean;
 }
 
@@ -26,6 +28,8 @@ export function DetailUnitModal({
   onKirimKeServis,
   onBukaFoto,
   onLihatNota,
+  onEditUnit,
+  onHapusUnit,
   isPrivacyMode,
 }: Props) {
   useOverlay(onClose);
@@ -33,6 +37,18 @@ export function DetailUnitModal({
 
   const [activePhotoIdx, setActivePhotoIdx] = useState(0);
   const [copiedImei, setCopiedImei] = useState(false);
+  const [modeEdit, setModeEdit] = useState(false);
+  const [modeHapus, setModeHapus] = useState(false);
+  const [alasanHapus, setAlasanHapus] = useState('Salah input stok');
+  const [sedangHapus, setSedangHapus] = useState(false);
+
+  const [editHargaJual, setEditHargaJual] = useState(unit.hargaJualTarget);
+  const [editKondisi, setEditKondisi] = useState<'Baru' | 'Bekas'>(unit.kondisi === 'Baru' ? 'Baru' : 'Bekas');
+  const [editGrade, setEditGrade] = useState<'A' | 'B' | 'C' | string>(unit.grade || 'A');
+  const [editKelengkapan, setEditKelengkapan] = useState<any>(unit.kelengkapan || 'Fullset');
+  const [editBaterai, setEditBaterai] = useState<number | string>(unit.baterai ?? '');
+  const [editCatatan, setEditCatatan] = useState(unit.catatan || '');
+  const [sedangSimpanEdit, setSedangSimpanEdit] = useState(false);
 
   const rupiah = (val: number) => 'Rp ' + val.toLocaleString('id-ID');
   const maskText = 'Rp ••• •••';
@@ -58,6 +74,114 @@ export function DetailUnitModal({
   };
 
   const potensiLaba = unit.hargaJualTarget - unit.hpp;
+
+  if (modeHapus) {
+    return (
+      <div class="modal-overlay" onClick={onClose} role="dialog" aria-modal="true">
+        <div class="sheet-container" onClick={e => e.stopPropagation()} style={{ maxWidth: '440px' }}>
+          <div class="sheet-header">
+            <h3 class="title-md">Hapus Unit {unit.id}?</h3>
+            <button class="btn-icon" onClick={() => setModeHapus(false)} aria-label="Tutup"><IconClose size={20} /></button>
+          </div>
+          <div class="sheet-body flex flex-col gap-3">
+            <div class="banner banner-warning">
+              <strong>Unit akan dibatalkan:</strong> Unit {unit.nama} ({unit.id}) akan berstatus Batal dan tidak akan muncul di daftar stok aktif.
+            </div>
+            <div>
+              <label class="form-label">Alasan pembatalan</label>
+              <input class="form-input" value={alasanHapus} onInput={e => setAlasanHapus((e.target as HTMLInputElement).value)} placeholder="Contoh: Salah input stok" />
+            </div>
+          </div>
+          <div class="sheet-footer flex gap-2">
+            <button class="btn btn-secondary flex-1" onClick={() => setModeHapus(false)} disabled={sedangHapus}>Batal</button>
+            <button class="btn btn-danger flex-1" disabled={sedangHapus} onClick={async () => {
+              if (onHapusUnit) {
+                setSedangHapus(true);
+                await onHapusUnit(unit.id, alasanHapus);
+                setSedangHapus(false);
+                onClose();
+              }
+            }}>
+              {sedangHapus ? 'Menghapus...' : 'Konfirmasi Hapus'}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (modeEdit) {
+    return (
+      <div class="modal-overlay" onClick={onClose} role="dialog" aria-modal="true">
+        <div class="sheet-container" onClick={e => e.stopPropagation()} style={{ maxWidth: '480px' }}>
+          <div class="sheet-header">
+            <h3 class="title-md">Ubah Data {unit.id}</h3>
+            <button class="btn-icon" onClick={() => setModeEdit(false)} aria-label="Tutup"><IconClose size={20} /></button>
+          </div>
+          <form onSubmit={async (e) => {
+            e.preventDefault();
+            if (onEditUnit) {
+              setSedangSimpanEdit(true);
+              await onEditUnit(unit.id, {
+                hargaJualTarget: Number(editHargaJual) || 0,
+                kondisi: editKondisi,
+                grade: editGrade,
+                kelengkapan: editKelengkapan,
+                bateraiPersen: editBaterai ? Number(editBaterai) : undefined,
+                catatan: editCatatan,
+              });
+              setSedangSimpanEdit(false);
+              setModeEdit(false);
+            }
+          }}>
+            <div class="sheet-body flex flex-col gap-3" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
+              <div>
+                <label class="form-label">Harga Jual Target (Rp)</label>
+                <input type="number" class="form-input" value={editHargaJual} onInput={e => setEditHargaJual(Number((e.target as HTMLInputElement).value))} required />
+              </div>
+              <div class="form-grid2">
+                <div>
+                  <label class="form-label">Kondisi</label>
+                  <select class="form-select" value={editKondisi} onChange={e => setEditKondisi((e.target as HTMLSelectElement).value as any)}>
+                    <option value="Bekas">Bekas</option>
+                    <option value="Baru">Baru</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="form-label">Grade</label>
+                  <select class="form-select" value={editGrade} onChange={e => setEditGrade((e.target as HTMLSelectElement).value)}>
+                    <option value="A">Grade A (Mulus)</option>
+                    <option value="B">Grade B (Standar)</option>
+                    <option value="C">Grade C (Minus fisik)</option>
+                  </select>
+                </div>
+              </div>
+              <div class="form-grid2">
+                <div>
+                  <label class="form-label">Kelengkapan</label>
+                  <input type="text" class="form-input" value={editKelengkapan} onInput={e => setEditKelengkapan((e.target as HTMLInputElement).value)} placeholder="Fullset / Unit only" />
+                </div>
+                <div>
+                  <label class="form-label">Kesehatan Baterai (%)</label>
+                  <input type="number" min="0" max="100" class="form-input" value={editBaterai} onInput={e => setEditBaterai((e.target as HTMLInputElement).value)} placeholder="Misal 88" />
+                </div>
+              </div>
+              <div>
+                <label class="form-label">Catatan</label>
+                <input type="text" class="form-input" value={editCatatan} onInput={e => setEditCatatan((e.target as HTMLInputElement).value)} placeholder="Cacat fisik, minus, bonus bawaan" />
+              </div>
+            </div>
+            <div class="sheet-footer flex gap-2">
+              <button type="button" class="btn btn-secondary flex-1" onClick={() => setModeEdit(false)} disabled={sedangSimpanEdit}>Batal</button>
+              <button type="submit" class="btn btn-primary flex-1" disabled={sedangSimpanEdit}>
+                {sedangSimpanEdit ? 'Menyimpan...' : 'Simpan Perubahan'}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div class="modal-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-labelledby="title-unit-detail">
@@ -335,20 +459,37 @@ export function DetailUnitModal({
           {unit.status === 'Ready' && (
             <>
               <button
+                type="button"
+                class="btn btn-edit"
+                onClick={() => setModeEdit(true)}
+                title="Ubah data unit (harga jual, grade, kelengkapan, dll)"
+              >
+                <IconWrench size={16} />
+                <span>Ubah</span>
+              </button>
+              <button
+                type="button"
+                class="btn btn-danger-subtle"
+                onClick={() => setModeHapus(true)}
+                title="Hapus unit jika salah input stok"
+              >
+                <IconAlertTriangle size={16} />
+                <span>Hapus</span>
+              </button>
+              <button
                 class="btn btn-secondary"
                 onClick={() => { onKirimKeServis(unit); onClose(); }}
                 style={{ flex: 1 }}
               >
-                <IconWrench size={18} />
-                <span>Kirim ke Servis</span>
+                <span>Ke Servis</span>
               </button>
               <button
                 class="btn btn-primary"
                 onClick={() => { onJual(unit); onClose(); }}
-                style={{ flex: 2 }}
+                style={{ flex: 1.5 }}
               >
                 <IconReceipt size={18} />
-                <span>Jual Sekarang</span>
+                <span>Jual</span>
               </button>
             </>
           )}

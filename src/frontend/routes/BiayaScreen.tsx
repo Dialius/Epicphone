@@ -14,6 +14,8 @@ interface Props {
   biayaList?: BiayaOperasional[];
   /** Kembalikan false bila gagal agar form tetap terbuka */
   onTambahBiaya?: (biaya: BiayaOperasional) => void | boolean | Promise<boolean | void>;
+  onEditBiaya?: (id: string, data: Partial<BiayaOperasional>) => void | boolean | Promise<boolean | void>;
+  onHapusBiaya?: (id: string, alasan?: string) => void | boolean | Promise<boolean | void>;
 }
 
 const KATEGORI: Array<BiayaOperasional['kategori']> = ['Sewa', 'Listrik', 'Internet', 'Gaji', 'Transport', 'Iklan', 'Lainnya'];
@@ -27,11 +29,14 @@ const dariIso = (iso: string) => { const [y, m, d] = iso.split('-'); return `${d
 /** kunci bulan dari teks tanggal: "2026-10" */
 const kunciBulan = (tgl: string) => keIso(tgl).slice(0, 7);
 
-export function BiayaScreen({ biayaList = [], onTambahBiaya }: Props) {
+export function BiayaScreen({ biayaList = [], onTambahBiaya, onEditBiaya, onHapusBiaya }: Props) {
   const id = useFieldId('by');
   const daftar = biayaList; // dikendalikan app
   const [filterKategori, setFilterKategori] = useState<string>('Semua');
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [editBiayaTarget, setEditBiayaTarget] = useState<BiayaOperasional | null>(null);
+  const [hapusBiayaTarget, setHapusBiayaTarget] = useState<BiayaOperasional | null>(null);
+  const [alasanHapus, setAlasanHapus] = useState('');
 
   const [kategori, setKategori] = useState<BiayaOperasional['kategori']>('Listrik');
   const [nominal, setNominal] = useState('');
@@ -53,22 +58,70 @@ export function BiayaScreen({ biayaList = [], onTambahBiaya }: Props) {
   };
   const valid = !galat.nominal && !galat.tanggal;
 
-  const bukaForm = () => { setKategori('Listrik'); setNominal(''); setKeterangan(''); setTanggalIso(hariIniIso); setCoba(false); setIsFormOpen(true); };
+  const bukaForm = () => {
+    setEditBiayaTarget(null);
+    setKategori('Listrik');
+    setNominal('');
+    setKeterangan('');
+    setTanggalIso(hariIniIso);
+    setCoba(false);
+    setIsFormOpen(true);
+  };
+
+  const bukaEdit = (b: BiayaOperasional) => {
+    setEditBiayaTarget(b);
+    setKategori(b.kategori);
+    setNominal(String(b.nominal));
+    setKeterangan(b.keterangan || '');
+    setTanggalIso(keIso(b.tanggal) || hariIniIso);
+    setCoba(false);
+    setIsFormOpen(true);
+  };
 
   const handleSubmit = async (e?: Event) => {
     e?.preventDefault();
     setCoba(true);
     if (!valid || menyimpan) return;
     const tanggal = dariIso(tanggalIso);
-    const baru: BiayaOperasional = {
-      id: `BIA-${tanggalIso.slice(2, 4)}${tanggalIso.slice(5, 7)}-${String(daftar.length + 1).padStart(4, '0')}`,
-      tanggal, kategori, nominal: duit(nominal), keterangan: keterangan.trim() || kategori,
-    };
     setMenyimpan(true);
-    const hasil = onTambahBiaya ? await Promise.resolve(onTambahBiaya(baru)) : undefined;
-    setMenyimpan(false);
-    if (hasil === false) return;
-    setIsFormOpen(false);
+    try {
+      if (editBiayaTarget) {
+        if (onEditBiaya) {
+          const hasil = await Promise.resolve(onEditBiaya(editBiayaTarget.id, {
+            tanggal,
+            kategori,
+            nominal: duit(nominal),
+            keterangan: keterangan.trim() || kategori,
+          }));
+          if (hasil === false) return;
+        }
+      } else {
+        const baru: BiayaOperasional = {
+          id: `BIA-${tanggalIso.slice(2, 4)}${tanggalIso.slice(5, 7)}-${String(daftar.length + 1).padStart(4, '0')}`,
+          tanggal, kategori, nominal: duit(nominal), keterangan: keterangan.trim() || kategori,
+        };
+        const hasil = onTambahBiaya ? await Promise.resolve(onTambahBiaya(baru)) : undefined;
+        if (hasil === false) return;
+      }
+      setIsFormOpen(false);
+      setEditBiayaTarget(null);
+    } finally {
+      setMenyimpan(false);
+    }
+  };
+
+  const konfirmasiHapus = async () => {
+    if (!hapusBiayaTarget) return;
+    setMenyimpan(true);
+    try {
+      if (onHapusBiaya) {
+        await Promise.resolve(onHapusBiaya(hapusBiayaTarget.id, alasanHapus || 'Dihapus dari aplikasi'));
+      }
+      setHapusBiayaTarget(null);
+      setAlasanHapus('');
+    } finally {
+      setMenyimpan(false);
+    }
   };
 
   return (
@@ -76,7 +129,7 @@ export function BiayaScreen({ biayaList = [], onTambahBiaya }: Props) {
       <div class="page-head split">
         <div class="page-head-text"><div class="page-sub">{terfilter.length} catatan · sewa, listrik, gaji, dan biaya toko lain</div></div>
         <div class="page-actions">
-          <button type="button" class="btn btn-primary" onClick={bukaForm}><IconPlus size={18} /> <span class="btn-label">Catat biaya</span></button>
+          <button type="button" class="btn btn-create" onClick={bukaForm}><IconPlus size={18} /> <span class="btn-label">Catat biaya</span></button>
         </div>
       </div>
 
@@ -103,17 +156,23 @@ export function BiayaScreen({ biayaList = [], onTambahBiaya }: Props) {
                 <div class="biaya-judul"><span class="badge badge-neutral">{b.kategori}</span><strong>{b.keterangan}</strong></div>
                 <span class="title-sub">{b.id} · {b.tanggal}</span>
               </div>
-              <div class="text-uang biaya-nominal">-{rupiah(b.nominal)}</div>
+              <div class="row" style={{ alignItems: 'center', gap: '12px' }}>
+                <div class="text-uang biaya-nominal">-{rupiah(b.nominal)}</div>
+                <div class="row-actions">
+                  <button type="button" class="btn btn-edit btn-sm" onClick={() => bukaEdit(b)}>Ubah</button>
+                  <button type="button" class="btn btn-danger-subtle btn-sm" onClick={() => setHapusBiayaTarget(b)}>Hapus</button>
+                </div>
+              </div>
             </div>
           ))}
         </div>
       )}
 
       {isFormOpen && (
-        <ModalShell onClose={() => setIsFormOpen(false)} title="Catat biaya operasional" size="sm" dirty={!!(nominal || keterangan)} initialFocus={`#${id}-nominal`}
+        <ModalShell onClose={() => setIsFormOpen(false)} title={editBiayaTarget ? 'Ubah biaya operasional' : 'Catat biaya operasional'} size="sm" dirty={!!(nominal || keterangan)} initialFocus={`#${id}-nominal`}
           footer={<>
             <button type="button" class="btn btn-ghost" onClick={() => setIsFormOpen(false)}>Batal</button>
-            <button type="submit" form={`${id}-form`} class="btn btn-primary" disabled={menyimpan}>{menyimpan ? <span class="spinner" /> : null} Simpan biaya</button>
+            <button type="submit" form={`${id}-form`} class="btn btn-primary" disabled={menyimpan}>{menyimpan ? <span class="spinner" /> : null} {editBiayaTarget ? 'Simpan perubahan' : 'Simpan biaya'}</button>
           </>}>
           <form id={`${id}-form`} class="form-stack" onSubmit={handleSubmit} noValidate>
             <div class="form-group">
@@ -132,6 +191,36 @@ export function BiayaScreen({ biayaList = [], onTambahBiaya }: Props) {
               <input id={`${id}-ket`} class="form-input" value={keterangan} maxLength={120} onInput={e => setKeterangan((e.target as HTMLInputElement).value)} />
             </Field>
           </form>
+        </ModalShell>
+      )}
+
+      {hapusBiayaTarget && (
+        <ModalShell onClose={() => !menyimpan && setHapusBiayaTarget(null)}
+          title="Hapus / Batalkan Biaya"
+          subtitle={hapusBiayaTarget.id}
+          size="sm"
+          footer={
+            <>
+              <button type="button" class="btn btn-secondary" onClick={() => setHapusBiayaTarget(null)} disabled={menyimpan}>Batal</button>
+              <button type="button" class="btn btn-danger" onClick={konfirmasiHapus} disabled={menyimpan}>
+                {menyimpan ? 'Menghapus...' : 'Ya, batalkan biaya'}
+              </button>
+            </>
+          }
+        >
+          <div class="stack" style={{ gap: '14px' }}>
+            <p>
+              Apakah Anda yakin ingin membatalkan pencatatan biaya <strong>{hapusBiayaTarget.keterangan}</strong> sebesar <strong>{rupiah(hapusBiayaTarget.nominal)}</strong>?
+            </p>
+            <div class="banner banner-neutral">
+              Biaya yang dibatalkan akan dinolkan agar tidak lagi memotong laba toko.
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="alasan-hapus-biaya">Alasan pembatalan (opsional)</label>
+              <input id="alasan-hapus-biaya" class="form-input" type="text" placeholder="Contoh: Salah catat nominal / dobel input"
+                value={alasanHapus} onInput={e => setAlasanHapus((e.target as HTMLInputElement).value)} />
+            </div>
+          </div>
         </ModalShell>
       )}
     </div>

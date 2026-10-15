@@ -139,7 +139,7 @@ export interface ServisItem {
   biayaPart: number;
   biayaJasa: number;
   tarifPelanggan: number;
-  status: 'Antri' | 'Dikerjakan' | 'Selesai' | 'Diambil';
+  status: 'Antri' | 'Dikerjakan' | 'Selesai' | 'Diambil' | 'Batal';
   tahap: 'sebelum' | 'proses' | 'sesudah';
   unitHpId?: string;
   catatan?: string;

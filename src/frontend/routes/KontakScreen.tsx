@@ -10,15 +10,21 @@ import { IconSearch, IconPlus, IconClose, IconCopy, IconCheck, IconReceipt } fro
 interface Props {
   kontakList?: KontakItem[];
   onTambahKontak?: (k: KontakItem) => void;
+  onEditKontak?: (id: string, data: Partial<KontakItem>) => Promise<boolean | void> | void;
+  onHapusKontak?: (id: string, alasan?: string) => Promise<boolean | void> | void;
   onBukaRiwayatTransaksi?: (nama: string) => void;
 }
 
-export function KontakScreen({ kontakList = [], onTambahKontak, onBukaRiwayatTransaksi }: Props) {
+export function KontakScreen({ kontakList = [], onTambahKontak, onEditKontak, onHapusKontak, onBukaRiwayatTransaksi }: Props) {
   const daftar = kontakList; // dikendalikan app: data tidak hilang saat pindah tab
   const [filterTipe, setFilterTipe] = useState<'Semua' | 'Pelanggan' | 'Supplier'>('Semua');
   const [query, setQuery] = useState('');
   const [selectedKontak, setSelectedKontak] = useState<KontakItem | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [editingKontakId, setEditingKontakId] = useState<string | null>(null);
+  const [isHapusOpen, setIsHapusOpen] = useState(false);
+  const [alasanHapus, setAlasanHapus] = useState('');
+  const [sedangSimpan, setSedangSimpan] = useState(false);
   const [copiedWa, setCopiedWa] = useState(false);
 
   // Form State
@@ -27,6 +33,27 @@ export function KontakScreen({ kontakList = [], onTambahKontak, onBukaRiwayatTra
   const [noWa, setNoWa] = useState('');
   const [alamat, setAlamat] = useState('');
   const [catatan, setCatatan] = useState('');
+
+  const bukaTambah = () => {
+    setEditingKontakId(null);
+    setNama('');
+    setTipe('Pelanggan');
+    setNoWa('');
+    setAlamat('');
+    setCatatan('');
+    setIsFormOpen(true);
+  };
+
+  const bukaEdit = (k: KontakItem) => {
+    setEditingKontakId(k.id);
+    setNama(k.nama);
+    setTipe(k.tipe === 'Supplier' ? 'Supplier' : 'Pelanggan');
+    setNoWa(k.noWa === '-' ? '' : k.noWa);
+    setAlamat(k.alamat || '');
+    setCatatan(k.catatan || '');
+    setSelectedKontak(null);
+    setIsFormOpen(true);
+  };
 
   const terfilter = daftar.filter(k => {
     if (filterTipe !== 'Semua' && k.tipe !== filterTipe && k.tipe !== 'Keduanya') return false; // 'Keduanya' muncul di kedua daftar
@@ -44,37 +71,70 @@ export function KontakScreen({ kontakList = [], onTambahKontak, onBukaRiwayatTra
     setTimeout(() => setCopiedWa(false), 2000);
   };
 
-  const handleSubmit = (e: Event) => {
+  const handleSubmit = async (e: Event) => {
     e.preventDefault();
     if (!nama.trim()) return;
 
-    const baru: KontakItem = {
-      id: `KTK-${String(daftar.reduce((m, k) => Math.max(m, parseInt(k.id.replace(/\D/g, ''), 10) || 0), 0) + 1).padStart(4, '0')}`,
-      nama,
-      tipe,
-      noWa: noWa || '-',
-      alamat: alamat || 'Purwokerto',
-      totalTransaksi: 0,
-      catatan,
-      aktif: true,
-    };
-
     const digit = (s: string) => s.replace(/\D/g, '');
-    const dobel = noWa.trim() && daftar.find(k => digit(k.noWa) && digit(k.noWa) === digit(noWa));
+    const dobel = noWa.trim() && daftar.find(k => k.id !== editingKontakId && digit(k.noWa) && digit(k.noWa) === digit(noWa));
     if (dobel) { toast({ tipe: 'warning', judul: 'Nomor WA sudah terdaftar', desk: `Dipakai oleh ${dobel.nama}.` }); return; }
-    if (onTambahKontak) onTambahKontak(baru);
-    setIsFormOpen(false);
-    setNama('');
-    setNoWa('');
-    setAlamat('');
-    setCatatan('');
+
+    setSedangSimpan(true);
+    try {
+      if (editingKontakId) {
+        if (onEditKontak) {
+          await onEditKontak(editingKontakId, {
+            nama,
+            tipe,
+            noWa: noWa || '-',
+            alamat: alamat || 'Purwokerto',
+            catatan,
+          });
+        }
+      } else {
+        const baru: KontakItem = {
+          id: `KTK-${String(daftar.reduce((m, k) => Math.max(m, parseInt(k.id.replace(/\D/g, ''), 10) || 0), 0) + 1).padStart(4, '0')}`,
+          nama,
+          tipe,
+          noWa: noWa || '-',
+          alamat: alamat || 'Purwokerto',
+          totalTransaksi: 0,
+          catatan,
+          aktif: true,
+        };
+        if (onTambahKontak) onTambahKontak(baru);
+      }
+      setIsFormOpen(false);
+      setEditingKontakId(null);
+    } catch (err: any) {
+      toast({ tipe: 'error', judul: 'Gagal menyimpan kontak', desk: err?.message || String(err) });
+    } finally {
+      setSedangSimpan(false);
+    }
+  };
+
+  const handleKonfirmasiHapus = async () => {
+    if (!selectedKontak) return;
+    setSedangSimpan(true);
+    try {
+      if (onHapusKontak) {
+        await onHapusKontak(selectedKontak.id, alasanHapus || 'Dinonaktifkan oleh pengguna');
+      }
+      setIsHapusOpen(false);
+      setSelectedKontak(null);
+      setAlasanHapus('');
+    } catch (err: any) {
+      toast({ tipe: 'error', judul: 'Gagal menghapus kontak', desk: err?.message || String(err) });
+    } finally {
+      setSedangSimpan(false);
+    }
   };
 
   return (
     <div class="page-container">
       {/* Header */}
       <div class="flex-between w-full">
-        <button class="btn btn-primary" onClick={() => setIsFormOpen(true)}>
+        <button class="btn btn-create" onClick={bukaTambah}>
           <IconPlus size={16} />
           <span>Kontak Baru</span>
         </button>
@@ -156,7 +216,7 @@ export function KontakScreen({ kontakList = [], onTambahKontak, onBukaRiwayatTra
       </div>
 
       {/* S37 Detail Kontak Modal */}
-      {selectedKontak && (
+      {selectedKontak && !isHapusOpen && (
         <div class="modal-overlay" onClick={() => setSelectedKontak(null)} role="dialog" aria-modal="true" aria-labelledby="title-detail-kontak">
           <div class="sheet-container max-w-md" onClick={e => e.stopPropagation()}>
             <div class="sheet-header">
@@ -198,6 +258,22 @@ export function KontakScreen({ kontakList = [], onTambahKontak, onBukaRiwayatTra
                   <span class="text-secondary">Total Transaksi:</span>
                   <div><strong>{selectedKontak.totalTransaksi} transaksi</strong> selesai</div>
                 </div>
+
+                {selectedKontak.catatan && (
+                  <div class="border-t border-subtle pt-2 mt-2">
+                    <span class="text-secondary">Catatan:</span>
+                    <div class="mt-1 text-primary">{selectedKontak.catatan}</div>
+                  </div>
+                )}
+              </div>
+
+              <div class="flex gap-2">
+                <button type="button" class="btn btn-edit flex-1" onClick={() => bukaEdit(selectedKontak)}>
+                  Ubah Kontak
+                </button>
+                <button type="button" class="btn btn-danger-subtle flex-1" onClick={() => setIsHapusOpen(true)}>
+                  Hapus Kontak
+                </button>
               </div>
 
               {onBukaRiwayatTransaksi && (
@@ -223,13 +299,48 @@ export function KontakScreen({ kontakList = [], onTambahKontak, onBukaRiwayatTra
         </div>
       )}
 
-      {/* Form Tambah Kontak Modal */}
-      {isFormOpen && (
-        <div class="modal-overlay" onClick={() => setIsFormOpen(false)} role="dialog" aria-modal="true" aria-labelledby="title-tambah-kontak">
+      {/* Konfirmasi Hapus Kontak Modal */}
+      {isHapusOpen && selectedKontak && (
+        <div class="modal-overlay" onClick={() => !sedangSimpan && setIsHapusOpen(false)} role="dialog" aria-modal="true">
           <div class="sheet-container max-w-sm" onClick={e => e.stopPropagation()}>
             <div class="sheet-header">
-              <h2 id="title-tambah-kontak" class="title-md">Kontak baru</h2>
-              <button class="btn-icon" onClick={() => setIsFormOpen(false)} aria-label="Tutup">
+              <h2 class="title-md">Hapus / Nonaktifkan Kontak</h2>
+              <button class="btn-icon" onClick={() => setIsHapusOpen(false)} disabled={sedangSimpan}>
+                <IconClose size={20} />
+              </button>
+            </div>
+            <div class="sheet-body flex-col gap-3">
+              <p>Apakah Anda yakin ingin menonaktifkan kontak <strong>{selectedKontak.nama}</strong> ({selectedKontak.tipe})?</p>
+              <div>
+                <label class="form-label">Alasan (opsional)</label>
+                <input
+                  type="text"
+                  class="form-input"
+                  placeholder="Contoh: Nomor sudah tidak aktif / salah input"
+                  value={alasanHapus}
+                  onInput={e => setAlasanHapus((e.target as HTMLInputElement).value)}
+                />
+              </div>
+            </div>
+            <div class="sheet-footer flex gap-2">
+              <button type="button" class="btn btn-secondary flex-1" onClick={() => setIsHapusOpen(false)} disabled={sedangSimpan}>
+                Batal
+              </button>
+              <button type="button" class="btn btn-danger flex-1" onClick={handleKonfirmasiHapus} disabled={sedangSimpan}>
+                {sedangSimpan ? 'Menghapus...' : 'Ya, Hapus'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Form Tambah / Ubah Kontak Modal */}
+      {isFormOpen && (
+        <div class="modal-overlay" onClick={() => !sedangSimpan && setIsFormOpen(false)} role="dialog" aria-modal="true" aria-labelledby="title-tambah-kontak">
+          <div class="sheet-container max-w-sm" onClick={e => e.stopPropagation()}>
+            <div class="sheet-header">
+              <h2 id="title-tambah-kontak" class="title-md">{editingKontakId ? 'Ubah kontak' : 'Kontak baru'}</h2>
+              <button class="btn-icon" onClick={() => setIsFormOpen(false)} disabled={sedangSimpan} aria-label="Tutup">
                 <IconClose size={20} />
               </button>
             </div>
@@ -257,7 +368,7 @@ export function KontakScreen({ kontakList = [], onTambahKontak, onBukaRiwayatTra
                 </div>
 
                 <div>
-                  <label class="form-label">Nama Lengkap / Toko</label>
+                  <label class="form-label">Nama Lengkap / Toko <span class="text-danger">*</span></label>
                   <input
                     type="text"
                     class="form-input"
@@ -303,11 +414,11 @@ export function KontakScreen({ kontakList = [], onTambahKontak, onBukaRiwayatTra
               </div>
 
               <div class="sheet-footer flex gap-2">
-                <button type="button" class="btn btn-secondary flex-1" onClick={() => setIsFormOpen(false)}>
+                <button type="button" class="btn btn-secondary flex-1" onClick={() => setIsFormOpen(false)} disabled={sedangSimpan}>
                   Batal
                 </button>
-                <button type="submit" class="btn btn-primary flex-[2]">
-                  Simpan Kontak
+                <button type="submit" class="btn btn-primary flex-[2]" disabled={sedangSimpan}>
+                  {sedangSimpan ? 'Menyimpan...' : editingKontakId ? 'Simpan Perubahan' : 'Simpan Kontak'}
                 </button>
               </div>
             </form>
