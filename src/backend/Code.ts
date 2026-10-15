@@ -39,6 +39,7 @@ import { daftarFoto, JenisReferensi } from './FotoService';
 import { ubahStatusUnit as _ubahStatusUnit } from './StokService';
 import { jalankanCekKonsistensi } from './Konsistensi';
 import { bacaPengaturan, PENGATURAN_BAWAAN } from './Pengaturan';
+import { folderUtama } from './Drive';
 
 // ── Respons standar ───────────────────────────────────────────────────────────
 
@@ -444,6 +445,26 @@ export function simpanPengaturan(data: Record<string, string>): Respons {
     if (data.NOTA_LINK_PUBLIK !== undefined) terapkanTautanNota(data.NOTA_LINK_PUBLIK !== 'Tidak');
     return 'Pengaturan disimpan.';
   });
+}
+
+/** Simpan berkas logo PNG bulat ke Google Drive dan pasang sebagai ID_BERKAS_LOGO */
+export function perbaruiLogoDrive(base64Png: string): Respons<{ fileId: string; url: string }> {
+  try {
+    const raw = String(base64Png || '').replace(/^data:image\/png;base64,/, '');
+    const blob = Utilities.newBlob(Utilities.base64Decode(raw), 'image/png', 'Logo-epicphone-rounded.png');
+    const fUtama = folderUtama();
+    const file = fUtama.createFile(blob);
+    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    const newId = file.getId();
+
+    if (!Db.updateById(SHEET.PENGATURAN, 'ID_BERKAS_LOGO', { Nilai: newId })) {
+      Db.append(SHEET.PENGATURAN, { Kunci: 'ID_BERKAS_LOGO', Nilai: newId, Keterangan: 'ID berkas logo toko dari Google Drive' });
+    }
+    log('Ubah', 'Pengaturan', 'ID_BERKAS_LOGO', `Logo toko diperbarui ke Google Drive: ${newId}`);
+    return ok({ fileId: newId, url: `https://lh3.googleusercontent.com/d/${newId}?.png` });
+  } catch (err: any) {
+    return keRespons(err);
+  }
 }
 
 // ── Pekerjaan terjadwal (dipasang trigger oleh setupAwal) ─────────────────────

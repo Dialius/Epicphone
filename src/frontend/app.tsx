@@ -204,13 +204,45 @@ export function App() {
     };
   }, [isDemo, muatSemua]);
 
-  // Ikon tab browser otomatis mengikuti logo Google Drive dari pengaturan
+  // Ikon tab browser otomatis mengikuti logo Google Drive dari pengaturan dengan radius membulat
   useEffect(() => {
-    if (pengaturanServer?.ID_BERKAS_LOGO) {
-      const fav = ambilUrlLogo(pengaturanServer.ID_BERKAS_LOGO);
-      const link = document.querySelector<HTMLLinkElement>("link[rel*='icon']");
-      if (link) link.href = fav;
-    }
+    const rawFav = pengaturanServer?.ID_BERKAS_LOGO
+      ? ambilUrlLogo(pengaturanServer.ID_BERKAS_LOGO)
+      : 'https://raw.githubusercontent.com/Dialius/Epicphone/main/favicon.png';
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      try {
+        const cvs = document.createElement('canvas');
+        cvs.width = 64; cvs.height = 64;
+        const ctx = cvs.getContext('2d');
+        if (!ctx) return;
+        const r = 14;
+        ctx.beginPath();
+        ctx.moveTo(r, 0); ctx.lineTo(64 - r, 0);
+        ctx.quadraticCurveTo(64, 0, 64, r);
+        ctx.lineTo(64, 64 - r);
+        ctx.quadraticCurveTo(64, 64, 64 - r, 64);
+        ctx.lineTo(r, 64);
+        ctx.quadraticCurveTo(0, 64, 0, 64 - r);
+        ctx.lineTo(0, r);
+        ctx.quadraticCurveTo(0, 0, r, 0);
+        ctx.closePath();
+        ctx.clip();
+        ctx.drawImage(img, 0, 0, 64, 64);
+        let link = document.querySelector<HTMLLinkElement>("link[rel*='icon']");
+        if (!link) {
+          link = document.createElement('link');
+          link.rel = 'shortcut icon';
+          document.head.appendChild(link);
+        }
+        link.href = cvs.toDataURL('image/png');
+      } catch {
+        const link = document.querySelector<HTMLLinkElement>("link[rel*='icon']");
+        if (link) link.href = rawFav;
+      }
+    };
+    img.src = rawFav;
   }, [pengaturanServer?.ID_BERKAS_LOGO]);
 
   // ---- pintasan keyboard ----
